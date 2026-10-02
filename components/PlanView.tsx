@@ -5,6 +5,7 @@ import { Annotation, FieldLabel, Figure, Rule, Sheet, SourceBadge, Stamp } from 
 import { buildFounderTasks } from "@/lib/ui/founder-plan";
 import type { EmployeeAnswers, FounderAnswers } from "@/lib/ui/personas";
 import { rationaleForTask } from "@/lib/ui/rationale";
+import { DependencyTimeline } from "@/components/DependencyTimeline";
 import type { RationaleContext } from "@/lib/ui/rationale";
 import { blockingTasks, buildEmployeeBlockingContext, buildEmployeeTasks } from "@/lib/ui/scope";
 import type { BlockingContext, ScopedTask } from "@/lib/ui/scope";
@@ -243,6 +244,8 @@ export function PlanView(props: PlanViewProps) {
           <PlanSection label="Layer B / Employee" title="Relocate to Abu Dhabi" note={`${tasks.length} tasks / ${props.employee.name}`} tasks={tasks} externalBlockers={externalBlockers} {...sectionProps} />
         </>
       )}
+
+      {!founder && <DependencyTimeline tasks={props.plan.tasks} />}
 
       <p className="mt-10">
         <Annotation>{founder
