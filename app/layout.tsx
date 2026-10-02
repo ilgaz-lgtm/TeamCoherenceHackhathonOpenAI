@@ -37,7 +37,7 @@ const plexArabic = IBM_Plex_Sans_Arabic({
 
 export const metadata: Metadata = {
   title: "Wusool",
-  description: "Employer-led relocation to Abu Dhabi.",
+  description: "Company establishment and people relocation in Abu Dhabi.",
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {

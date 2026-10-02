@@ -1,6 +1,6 @@
 # Team Coherence
 
-One full-stack Next.js App Router hackathon repository for employer-led employee relocation to Abu Dhabi. Keep this foundation simple: no database, authentication or real property API yet.
+One full-stack Next.js App Router hackathon repository for establishing a company in Abu Dhabi and relocating its people. Keep this foundation simple: no database, authentication or real property API yet.
 
 ## Concurrent ownership
 
@@ -22,7 +22,11 @@ One full-stack Next.js App Router hackathon repository for employer-led employee
 
 ## Design language — "Blueprint"
 The product looks like a technical drafting document, not a SaaS dashboard.
-The founder's company is literally being drawn.
+It draws two dependent layers: establishing the founder's Abu Dhabi company
+(licensing, premises, banking), then relocating its people (visa, housing,
+schooling, insurance, settling). A sponsored employee's residence process
+depends on the establishment card, which depends on a valid company licence.
+Do not imply every people task legally requires a lease or bank account.
 
 ### Tokens — CSS custom properties in app/globals.css
 ```
@@ -56,7 +60,7 @@ The founder's company is literally being drawn.
 
 ### Depth
 **No `box-shadow` anywhere in the codebase.** Elevation = hairline borders + a
-1px offset paper edge on bottom and right + background shifts between
+3px offset paper edge on bottom and right + background shifts between
 --paper-sunk / --paper / --paper-raised.
 
 ### Motion
@@ -77,5 +81,9 @@ cards. Copy like "Supercharge", "Seamlessly", "Unlock", "Effortlessly",
 
 ## Voice
 Second person, declarative, specific. Numbers before adjectives. Never hype.
-Correct tone: "Mainland licence. 12–18 working days. From AED 15,000. Required
-because you invoice UAE customers directly."
+Cover both the company-establishment and people-relocation layers, and explain
+the dependency between them without confusing a workflow hold with a legal
+requirement. Company example: "Your establishment card needs a valid licence
+before your employee's sponsorship file can move." People example: "Your
+30-day temporary stay may shift if the visa task waits on the establishment
+card." Confirm current requirements with HR and the relevant authorities.
