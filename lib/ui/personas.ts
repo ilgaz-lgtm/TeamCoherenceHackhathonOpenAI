@@ -15,6 +15,9 @@ export type FounderAnswers = {
   relocatingSelf: boolean;
   movingWithSpouse: boolean;
   movingWithChild: boolean;
+  spouseName?: string;
+  childName?: string;
+  childAge?: number;
   arrivalTarget?: string;
   preferredArea?: string;
 };
@@ -26,6 +29,7 @@ export type EmployeeAnswers = {
   movingWithChild: boolean;
   preferredArea: string;
   maxCommuteMinutes: number;
+  housingBudgetAED?: number;
   arrivalTarget?: string;
   visaStage?: string;
   housingArrangement?: string;

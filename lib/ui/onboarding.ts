@@ -106,12 +106,16 @@ export const questions: Record<QuestionKey, QuestionDefinition> = {
   },
 };
 
-const targetDates = [
-  { value: "2026-12-01", label: "December 2026" },
-  { value: "2027-02-01", label: "February 2027" },
-  { value: "2027-04-01", label: "April 2027" },
-  { value: "2027-08-01", label: "August 2027" },
-] as const;
+function targetDates(todayISO: string) {
+  const [year, month] = todayISO.split("-").map(Number);
+  return [2, 4, 6, 10].map((offset) => {
+    const date = new Date(Date.UTC(year, month - 1 + offset, 1));
+    return {
+      value: date.toISOString().slice(0, 10),
+      label: new Intl.DateTimeFormat("en-GB", { month: "long", year: "numeric", timeZone: "UTC" }).format(date),
+    };
+  });
+}
 
 export const founderPersona: OnboardingAnswers = {
   role: "founder",
@@ -174,10 +178,10 @@ export function dayFromToday(targetISO: string, todayISO: string): number {
 
 export function optionsFor(key: QuestionKey, todayISO: string): readonly QuestionOption[] {
   if (key === "when") {
-    return targetDates.map(({ value, label }) => ({
+    return targetDates(todayISO).map(({ value, label }) => ({
       value,
       label,
-      consequence: value === "2027-08-01" ? "SCHOOL INTAKE" : `≈ DAY ${dayFromToday(value, todayISO)}`,
+      consequence: value.slice(5, 7) === "08" ? "SCHOOL INTAKE" : `≈ DAY ${dayFromToday(value, todayISO)}`,
     }));
   }
   return questions[key].options ?? [];

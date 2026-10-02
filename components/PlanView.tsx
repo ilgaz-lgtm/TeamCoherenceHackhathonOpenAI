@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Annotation, FieldLabel, Figure, Rule, Sheet, SourceBadge, Stamp } from "@/components/primitives";
+import { getActionGuide } from "@/lib/ui/action-guides";
 import { buildFounderTasks } from "@/lib/ui/founder-plan";
 import type { EmployeeAnswers, FounderAnswers } from "@/lib/ui/personas";
 import { rationaleForTask } from "@/lib/ui/rationale";
@@ -12,8 +13,8 @@ import type { BlockingContext, ScopedTask } from "@/lib/ui/scope";
 import type { Company, Employee, RelocationPlan } from "@/types/relocation";
 
 type PlanViewProps =
-  | { viewerRole: "founder"; answers: FounderAnswers }
-  | { viewerRole: "employee"; answers: EmployeeAnswers; company: Company; employee: Employee; plan: RelocationPlan };
+  | { viewerRole: "founder"; answers: FounderAnswers; sampleCase?: boolean; rememberCase?: boolean }
+  | { viewerRole: "employee"; answers: EmployeeAnswers; company: Company; employee: Employee; plan: RelocationPlan; sampleCase?: boolean; rememberCase?: boolean };
 
 type TaskListProps = {
   tasks: ScopedTask[];
@@ -24,33 +25,62 @@ type TaskListProps = {
   onToggle: (id: string, checked: boolean) => void;
 };
 
-function InfoSection({ id, number, title, intro, items, active }: { id: string; number: string; title: string; intro: string; items: string[]; active: string }) {
-  return <section id={id} className={`scroll-mt-16 ${active === id ? "" : "hidden"}`}><span className="font-mono text-[11px] uppercase tracking-[0.18em] text-ink-muted">{number} / {title}</span><h2 className="mt-2 font-heading text-2xl font-semibold uppercase text-ink">{title}</h2><p className="mt-3 text-sm leading-relaxed text-ink-muted">{intro}</p><ul className="mt-4 space-y-3 border-t border-rule pt-4 text-sm text-ink">{items.map((item) => <li key={item} className="border-b border-rule pb-3">{item}</li>)}</ul></section>;
+function ServiceSection({ id, title, intro, active, tasks, taskIds, fallbackId }: {
+  id: string; title: string; intro: string; active: string; tasks: ScopedTask[]; taskIds: string[]; fallbackId?: string;
+}) {
+  const selected = taskIds.flatMap((taskId) => {
+    const task = tasks.find((item) => item.id === taskId);
+    return task ? [{ id: task.id, title: task.title }] : [];
+  });
+  if (selected.length === 0 && fallbackId) selected.push({ id: fallbackId, title });
+  return (
+    <section id={id} className={active === id ? "mt-10 border-t border-rule pt-8" : "hidden"} aria-label={title}>
+      <FieldLabel>{title}</FieldLabel>
+      <h2 className="mt-2 font-heading text-2xl font-semibold uppercase sm:text-3xl">{title}</h2>
+      <p className="mt-3 max-w-3xl text-sm leading-relaxed text-ink-muted">{intro}</p>
+      <div className="mt-8 border-b border-rule">
+        {selected.map((item) => {
+          const guide = getActionGuide(item);
+          if (!guide) return null;
+          return (
+            <div key={item.id} className="grid gap-5 border-t border-rule py-6 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] md:gap-10">
+              <div>
+                <h3 className="font-heading text-xl font-semibold uppercase">{item.title}</h3>
+                <p className="mt-3 text-sm text-ink-muted">{guide.caveat}</p>
+                <a href={guide.action.url} target="_blank" rel="noopener noreferrer" className="mt-4 inline-flex min-h-11 items-center border-b border-accent font-mono text-xs uppercase hover:text-accent">{guide.action.label} ↗</a>
+                <div className="mt-3 flex flex-wrap gap-x-5 gap-y-2">{guide.discover.map((link) => <a key={link.url} href={link.url} target="_blank" rel="noopener noreferrer" className="border-b border-rule text-sm hover:border-accent">{link.label} ↗</a>)}</div>
+              </div>
+              <div className="md:border-l md:border-rule md:pl-6">
+                <FieldLabel>Before you contact them</FieldLabel>
+                <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-ink-muted">{guide.whatToPrepare.map((item) => <li key={item}>{item}</li>)}</ul>
+                <FieldLabel className="mt-5 block">What confirms completion</FieldLabel>
+                <p className="mt-2 text-sm">{guide.proofOfCompletion}</p>
+                <a href={guide.source.url} target="_blank" rel="noopener noreferrer" className="mt-4 inline-block font-mono text-[11px] uppercase text-ink-muted underline underline-offset-4 hover:text-accent">Source: {guide.source.title} ↗</a>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </section>
+  );
 }
 
 function TaskList({ tasks, allTasks, completed, context, externalBlockers = [], onToggle }: TaskListProps) {
   return (
     <ol className="mt-5 border-b border-rule">
       {tasks.map((task, index) => {
+        const guide = getActionGuide(task);
         const done = completed.has(task.id);
         const blockers = done ? [] : blockingTasks(task, allTasks, completed);
-        const companyBlockers = blockers.filter((item) => item.layer === "company");
-        const householdBlockers = blockers.filter((item) => item.layer === "self");
-        const employerHeld = !done && externalBlockers.length > 0;
+        const employerHeld = !done && externalBlockers.length > 0 && task.id === "visa";
         const blocked = blockers.length > 0 || employerHeld;
         const status = done ? "Complete" : blocked ? "Held" : task.status === "in_progress" ? "In progress" : "Ready";
         const holdText = employerHeld
-          ? "Waiting on employer licence and establishment card"
-          : task.layer === "self" && companyBlockers.length > 0
-            ? `Waiting on company setup / ${companyBlockers.length} tasks`
-            : task.layer === "team" && (companyBlockers.length > 0 || householdBlockers.length > 0)
-              ? companyBlockers.length > 0 && householdBlockers.length > 0
-                ? `Waiting on company setup (${companyBlockers.length}) and your move (${householdBlockers.length})`
-                : `Waiting on ${companyBlockers.length > 0 ? "company setup" : "your move"} / ${companyBlockers.length + householdBlockers.length} tasks`
-              : `Waiting on ${blockers.slice(0, 2).map((item) => item.title).join(" / ")}${blockers.length > 2 ? ` + ${blockers.length - 2} more` : ""}`;
+          ? `Waiting on ${externalBlockers.filter((item) => item.id.includes("licence") || item.id.includes("card")).map((item) => item.title).join(" / ")}`
+          : `Waiting on ${blockers.map((item) => item.title).join(" / ")}`;
 
         return (
-          <li key={task.id} className="grid gap-4 border-t border-rule py-6 md:grid-cols-[minmax(0,1fr)_minmax(0,0.85fr)] md:gap-10">
+          <li id={`task-${task.id}`} key={task.id} className="grid scroll-mt-20 gap-4 border-t border-rule py-6 md:grid-cols-[minmax(0,1fr)_minmax(0,0.85fr)] md:gap-10">
             <div className="min-w-0">
               <div className="flex items-start gap-3">
                 <input
@@ -74,8 +104,34 @@ function TaskList({ tasks, allTasks, completed, context, externalBlockers = [], 
                   <p className="mt-2 text-sm leading-relaxed text-ink-muted">{task.description}</p>
                   {blocked && (
                     <p className="mt-3 font-mono text-[11px] leading-5 text-warn">
-                      {holdText}
+                      {holdText.toUpperCase()}
                     </p>
+                  )}
+                  {guide && (
+                    <details className="mt-5 border-t border-rule pt-3 text-sm">
+                      <summary className="cursor-pointer font-mono text-[11px] font-semibold uppercase text-ink hover:text-accent">Where to do this / What to prepare</summary>
+                      <div className="mt-5 space-y-5 pb-1">
+                        <a href={guide.action.url} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center border-b border-accent font-mono text-xs uppercase text-ink hover:text-accent">{guide.action.label} ↗</a>
+                        {guide.discover.length > 0 && (
+                          <div>
+                            <FieldLabel>Explore and compare</FieldLabel>
+                            <div className="mt-2 flex flex-wrap gap-x-5 gap-y-2">
+                              {guide.discover.map((link) => <a key={link.url} href={link.url} target="_blank" rel="noopener noreferrer" className="border-b border-rule text-sm text-ink hover:border-accent hover:text-accent">{link.label} ↗</a>)}
+                            </div>
+                          </div>
+                        )}
+                        <div>
+                          <FieldLabel>Prepare</FieldLabel>
+                          <ul className="mt-2 list-disc space-y-1 pl-5 text-ink-muted">{guide.whatToPrepare.map((item) => <li key={item}>{item}</li>)}</ul>
+                        </div>
+                        <div>
+                          <FieldLabel>Completion evidence</FieldLabel>
+                          <p className="mt-2 text-ink">{guide.proofOfCompletion}</p>
+                        </div>
+                        <p className="text-xs leading-relaxed text-ink-muted">{guide.caveat}</p>
+                        <a href={guide.source.url} target="_blank" rel="noopener noreferrer" className="font-mono text-[11px] uppercase text-ink-muted underline underline-offset-4 hover:text-accent">Source: {guide.source.title} ↗</a>
+                      </div>
+                    </details>
                   )}
                 </div>
               </div>
@@ -128,9 +184,47 @@ export function PlanView(props: PlanViewProps) {
     () => new Set(tasks.filter((task) => task.status === "completed").map((task) => task.id)),
   );
   const [activePanel, setActivePanel] = useState("plan");
+  const [progressLoaded, setProgressLoaded] = useState(false);
+  const progressSignature = founder
+    ? `founder:${props.answers.name}:${props.answers.businessName}`
+    : `employee:${props.employee.name}:${props.answers.employerName}`;
+
+  // Local progress is available only after hydration; restore it once per plan mount.
+  /* eslint-disable react-hooks/set-state-in-effect */
+  useEffect(() => {
+    if (props.rememberCase && !props.sampleCase) {
+      try {
+        const saved = window.localStorage.getItem("wusool.progress.v1");
+        if (saved) {
+          const record: unknown = JSON.parse(saved);
+          if (record && typeof record === "object" && "signature" in record && "completed" in record) {
+            const progress = record as { signature: string; completed: unknown };
+            if (progress.signature === progressSignature && Array.isArray(progress.completed)) {
+              const taskIds = new Set(tasks.map((task) => task.id));
+              setCompleted(new Set(progress.completed.filter((id): id is string => typeof id === "string" && taskIds.has(id))));
+            }
+          }
+        }
+      } catch {
+        // Invalid local progress must not block the plan.
+      }
+    }
+    setProgressLoaded(true);
+  // The plan is remounted with a new key when the case changes.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  /* eslint-enable react-hooks/set-state-in-effect */
+
+  useEffect(() => {
+    if (!progressLoaded || !props.rememberCase || props.sampleCase) return;
+    window.localStorage.setItem("wusool.progress.v1", JSON.stringify({ signature: progressSignature, completed: [...completed] }));
+  }, [completed, progressLoaded, progressSignature, props.rememberCase, props.sampleCase]);
   const rationaleContext: RationaleContext = founder
     ? { viewerRole: "founder", answers: props.answers }
     : { viewerRole: "employee", answers: props.answers, company: props.company, employee: props.employee };
+  const readyTasks = tasks.filter((task) => !completed.has(task.id) && blockingTasks(task, tasks, completed).length === 0 && !(externalBlockers.length > 0 && task.id === "visa"));
+  const nextTask = readyTasks[0];
+  const nextGuide = nextTask ? getActionGuide(nextTask) : undefined;
 
   function toggleTask(id: string, checked: boolean) {
     setCompleted((previous) => {
@@ -155,13 +249,44 @@ export function PlanView(props: PlanViewProps) {
   }
 
   const sectionProps = { allTasks: tasks, completed, context: rationaleContext, onToggle: toggleTask };
+  const panelTabs = [
+    { id: "plan", label: "Plan" }, { id: "timeline", label: "Dependencies" },
+    { id: "housing", label: "Housing" }, { id: "schools", label: "Schools" },
+    { id: "health", label: "Health cover" }, { id: "banking", label: "Banking" },
+    { id: "moving", label: "Moving" }, { id: "settling", label: "Settling in" },
+    { id: "package", label: "HR & package" },
+  ].filter((tab) => (tab.id !== "schools" || tasks.some((task) => task.category === "school")) && (tab.id !== "package" || !founder));
 
   return (
     <div id="plan-view" className="pt-10">
-      <nav aria-label="Plan sections" className="sticky top-0 z-10 mb-8 flex min-w-max gap-7 overflow-x-auto border-b border-rule bg-paper py-3 font-mono text-[11px] uppercase tracking-[0.12em]">
-        <button type="button" onClick={() => setActivePanel("plan")} className={`border-b-2 pb-2 ${activePanel === "plan" ? "border-ink" : "border-transparent hover:border-accent"}`}>01 Plan</button>
-        <><button type="button" onClick={() => setActivePanel("timeline")} className="border-b-2 border-transparent pb-2 hover:border-accent">02 Timeline</button><button type="button" onClick={() => setActivePanel("housing")} className="border-b-2 border-transparent pb-2 hover:border-accent">03 Housing</button><button type="button" onClick={() => setActivePanel("schools")} className="border-b-2 border-transparent pb-2 hover:border-accent">04 Schools</button><button type="button" onClick={() => setActivePanel("health")} className="border-b-2 border-transparent pb-2 hover:border-accent">05 Health cover</button><button type="button" onClick={() => setActivePanel("banking")} className="border-b-2 border-transparent pb-2 hover:border-accent">06 Banking</button><button type="button" onClick={() => setActivePanel("moving")} className="border-b-2 border-transparent pb-2 hover:border-accent">07 Moving &amp; logistics</button><button type="button" onClick={() => setActivePanel("settling")} className="border-b-2 border-transparent pb-2 hover:border-accent">08 Settling in</button><button type="button" onClick={() => setActivePanel("package")} className="border-b-2 border-transparent pb-2 hover:border-accent">09 HR &amp; package</button></>
+      <nav aria-label="Plan sections" className="sticky top-0 z-10 mb-8 flex w-full gap-7 overflow-x-auto border-b border-rule bg-paper py-3 font-mono text-[11px] uppercase whitespace-nowrap">
+        {panelTabs.map((tab, index) => (
+          <button key={tab.id} type="button" aria-current={activePanel === tab.id ? "page" : undefined} onClick={() => setActivePanel(tab.id)} className={`shrink-0 border-b-2 pb-2 ${activePanel === tab.id ? "border-ink" : "border-transparent hover:border-accent"}`}>{String(index + 1).padStart(2, "0")} {tab.label}</button>
+        ))}
       </nav>
+      <div className={activePanel === "plan" ? "" : "hidden"}>
+      {nextTask && nextGuide && (
+        <section aria-label="Next action" className="mb-10 grid gap-5 border-y border-ink py-6 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] md:gap-10">
+          <div>
+            <FieldLabel>Start here / Next available action</FieldLabel>
+            <h2 className="mt-2 font-heading text-2xl font-semibold uppercase leading-tight sm:text-3xl">{nextTask.title}</h2>
+            <p className="mt-3 max-w-xl text-sm leading-relaxed text-ink-muted">{rationaleForTask(nextTask, rationaleContext)}</p>
+          </div>
+          <div className="flex flex-col items-start justify-center gap-3 md:border-l md:border-rule md:pl-8">
+            <a href={nextGuide.action.url} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center border-b border-accent font-mono text-xs uppercase hover:text-accent">{nextGuide.action.label} ↗</a>
+            <p className="text-xs leading-relaxed text-ink-muted">Done when: {nextGuide.proofOfCompletion}</p>
+            <a href={`#task-${nextTask.id}`} className="border-b border-rule font-mono text-[11px] uppercase hover:border-accent">See preparation and source ↓</a>
+            {readyTasks.length > 1 && (
+              <div className="mt-2 border-t border-rule pt-3">
+                <FieldLabel>Also ready in parallel</FieldLabel>
+                <div className="mt-2 flex flex-wrap gap-x-4 gap-y-2">
+                  {readyTasks.slice(1, 4).map((task) => <a key={task.id} href={`#task-${task.id}`} className="border-b border-rule text-xs text-ink hover:border-accent">{task.title} ↓</a>)}
+                </div>
+              </div>
+            )}
+          </div>
+        </section>
+      )}
       <Sheet level="raised" titleBlock={`Plan file / ${founder ? "Founder" : "Employee"}`} aria-label="Case file">
         <div className="flex flex-wrap items-start justify-between gap-6">
           <div>
@@ -174,7 +299,7 @@ export function PlanView(props: PlanViewProps) {
             </p>
             {founder && <Annotation className="mt-2 block">{props.answers.isEstablishedInUAE ? "Company established in the UAE" : "Company not yet established"}</Annotation>}
           </div>
-          <Stamp>Sample case</Stamp>
+          {props.sampleCase && <Stamp>Sample case</Stamp>}
         </div>
         <Rule className="my-8" />
         {founder && props.answers.isEstablishedInUAE ? (
@@ -209,10 +334,12 @@ export function PlanView(props: PlanViewProps) {
               <FieldLabel>{props.answers.housingArrangement === "provided" ? "Housing" : props.answers.housingArrangement === "no" ? "Housing budget" : "Housing allowance / Year"}</FieldLabel>
               {props.answers.housingArrangement === "provided" || props.answers.housingArrangement === "no" ? (
                 <Figure value={props.answers.housingArrangement === "provided" ? "Provided" : "From salary"} className="text-xl text-ink sm:text-2xl" />
-              ) : (
+              ) : props.company.policy.housingAllowanceAED > 0 ? (
                 <Figure value={props.company.policy.housingAllowanceAED} format="aed" className="text-2xl text-ink sm:text-3xl" />
+              ) : (
+                <Figure value="To confirm" className="text-xl text-ink sm:text-2xl" />
               )}
-              <Annotation>{props.answers.housingArrangement === "provided" ? "Employer package / No lease to sign" : props.answers.housingArrangement === "no" ? "No housing allowance / Salary-funded" : "Employer policy / Annual cap"}</Annotation>
+              <Annotation>{props.answers.housingArrangement === "provided" ? "Employer package / Confirm tenancy" : props.answers.housingArrangement === "no" ? "No housing allowance / Salary-funded" : props.company.policy.housingAllowanceAED > 0 ? "Employer policy / Annual cap" : "Request written allowance from employer"}</Annotation>
             </div>
             <div className="flex flex-col items-start gap-2">
               <FieldLabel>Work start date</FieldLabel>
@@ -221,15 +348,22 @@ export function PlanView(props: PlanViewProps) {
             </div>
           </div>
         )}
+        {!(founder && props.answers.isEstablishedInUAE) && (
+          <div className="mt-7 border-t border-rule pt-5">
+            <FieldLabel>Chosen arrival target</FieldLabel>
+            <Figure value={props.answers.arrivalTarget ?? "Not set"} className="mt-2 block text-xl text-ink sm:text-2xl" />
+            <Annotation className="mt-2 block">Planning target / Not a predicted clearance date</Annotation>
+          </div>
+        )}
         <Rule className="my-8" />
-        <SourceBadge source={founder ? "Sample founder intake" : "Sample employer policy"} />
+        {props.sampleCase ? <SourceBadge source={founder ? "Sample founder intake" : "Sample employer policy"} /> : <Annotation>Information from your intake / Requirements need authority confirmation</Annotation>}
       </Sheet>
 
       {founder ? (
         <>
           <PlanSection label="Layer A / Company" title="Establish the business" note={`${tasks.filter((task) => task.layer === "company").length} tasks / Company-owned`} tasks={tasks.filter((task) => task.layer === "company")} {...sectionProps} />
-          <PlanSection label="Layer B / Founder" title="Move your household" note={`${tasks.filter((task) => task.layer === "self").length} tasks / ${props.answers.isEstablishedInUAE ? "Company established" : "After company setup"}`} tasks={tasks.filter((task) => task.layer === "self")} {...sectionProps} />
-          <PlanSection label="Layer B / First hires" title="Bring in your first team" note={`${tasks.filter((task) => task.layer === "team").length} tasks / After your move`} tasks={tasks.filter((task) => task.layer === "team")} {...sectionProps} />
+          <PlanSection label="Layer B / Founder" title="Move your household" note={`${tasks.filter((task) => task.layer === "self").length} tasks / Prepare now; residence after company card`} tasks={tasks.filter((task) => task.layer === "self")} {...sectionProps} />
+          <PlanSection label="Layer B / First hires" title="Bring in your first team" note={`${tasks.filter((task) => task.layer === "team").length} tasks / Define roles now; permits after company card`} tasks={tasks.filter((task) => task.layer === "team")} {...sectionProps} />
         </>
       ) : (
         <>
@@ -254,12 +388,22 @@ export function PlanView(props: PlanViewProps) {
         </>
       )}
 
-      <><div id="timeline" className={activePanel === "timeline" ? "" : "hidden"}><DependencyTimeline tasks={tasks} /></div><section id="housing" className={activePanel === "housing" ? "mt-12 border-t border-rule pt-8" : "hidden"}><span className="font-mono text-[11px] uppercase tracking-[0.18em] text-ink-muted">03 / Housing</span><h2 className="mt-2 type-view text-ink">Housing shortlist</h2><p className="mt-3 max-w-2xl text-sm text-ink-muted">Fictional demo listings filtered from your relocation brief. Confirm availability and tenancy registration before acting.</p><div className="mt-6 overflow-x-auto border-y border-rule"><table className="w-full min-w-[640px] text-left text-sm"><thead className="font-mono text-[11px] uppercase text-ink-muted"><tr className="border-b border-rule"><th className="py-3 pr-4">Area</th><th className="py-3 pr-4">Home</th><th className="py-3 pr-4">Beds</th><th className="py-3 pr-4">Annual rent</th><th className="py-3">Commute</th></tr></thead><tbody>{[{area:"Al Reem Island",home:"Family apartment",beds:3,rent:"AED 155,000",commute:"15 min"},{area:"Saadiyat Island",home:"Family residence",beds:3,rent:"AED 175,000",commute:"25 min"},{area:"Yas Island",home:"Townhouse",beds:3,rent:"AED 170,000",commute:"35 min"}].map((row) => <tr key={row.area} className="border-b border-rule last:border-0"><td className="py-4 pr-4">{row.area}</td><td className="py-4 pr-4">{row.home}</td><td className="py-4 pr-4 font-mono">{row.beds}</td><td className="py-4 pr-4 font-mono">{row.rent}</td><td className="py-4 font-mono">{row.commute}</td></tr>)}</tbody></table></div></section><section className="mt-12 grid gap-10 border-t border-rule pt-8 sm:grid-cols-2" aria-label="Relocation services"><InfoSection active={activePanel} id="schools" number="04" title="Schools" intro="Compare curriculum, admissions timing, commute and total fees before choosing a catchment area." items={["Shortlist two schools near the preferred housing areas.", "Confirm places, age eligibility, curriculum and application deadlines.", "Compare tuition and transport with the employer school allowance."]} /><InfoSection active={activePanel} id="health" number="05" title="Health cover" intro="Confirm the policy dates and who is covered before arrival." items={["Request the insurer network and activation date from HR.", "Check dependant coverage, exclusions and pre-approval requirements.", "Keep medical and vaccination records ready for the relevant authority."]} /><InfoSection active={activePanel} id="banking" number="06" title="Banking" intro="Examples to compare with HR and the bank; approval, salary-transfer rules and documents vary." items={["First Abu Dhabi Bank (FAB)", "Abu Dhabi Commercial Bank (ADCB)", "Emirates NBD or Mashreq", "Confirm account eligibility, salary transfer, minimum balance and fees."]} /><InfoSection active={activePanel} id="moving" number="07" title="Moving & logistics" intro="Sequence travel, shipment, storage and arrival-day handover around visa clearance." items={["Confirm flight allowance, baggage and shipment budget.", "Book a mover only after the destination address and move-in date are confirmed.", "Prepare arrival transport, temporary accommodation and document copies."]} /><InfoSection active={activePanel} id="settling" number="08" title="Settling in" intro="Turn the signed tenancy and identity documents into a working home." items={["Register tenancy evidence where required and activate utilities.", "Arrange telecom, transport card, local SIM and essential deliveries.", "Keep a first-week checklist for school, clinic and neighbourhood orientation."]} /><InfoSection active={activePanel} id="package" number="09" title="HR & package" intro="Use one written package summary as the source of truth for the move." items={["Confirm salary, housing, school, flights, insurance and temporary accommodation caps.", "Record reimbursement process, approval owner and payment deadlines.", "Ask HR to confirm current immigration and employment requirements."]} /></section></>
+      </div>
+      <div id="timeline" className={activePanel === "timeline" ? "" : "hidden"}>
+        <DependencyTimeline tasks={tasks} completed={completed} />
+      </div>
+      <ServiceSection id="housing" title="Housing" intro="Compare current listings against your budget, commute and school needs. Confirm availability and verify tenancy records before paying." active={activePanel} tasks={tasks} taskIds={founder ? ["family-home"] : ["housing", "housing-tenancy"]} />
+      <ServiceSection id="schools" title="Schools" intro="Check current places, admissions dates, curriculum and fees directly with each school before fixing a home area." active={activePanel} tasks={tasks} taskIds={["family-school", "school"]} />
+      <ServiceSection id="health" title="Health cover" intro="Compare provider networks, effective dates and dependant eligibility before arrival." active={activePanel} tasks={tasks} taskIds={["family-insurance", "employee-coverage", "insurance"]} />
+      <ServiceSection id="banking" title="Banking" intro="Compare account eligibility, services and fees directly with licensed banks. Example providers are not endorsements." active={activePanel} tasks={tasks} taskIds={["business-bank", "payroll"]} fallbackId={founder ? undefined : "personal-bank"} />
+      <ServiceSection id="moving" title="Moving" intro="Book travel against confirmed permission and accommodation dates, not a target date alone." active={activePanel} tasks={tasks} taskIds={["family-travel", "employee-arrivals", "travel"]} />
+      <ServiceSection id="settling" title="Settling in" intro="Use registered residential tenancy evidence to activate your home services." active={activePanel} tasks={tasks} taskIds={["home-utilities", "settling"]} />
+      {!founder && <ServiceSection id="package" title="HR & package" intro="Get benefit amounts, policy limits and approval owners in writing from your employer." active={activePanel} tasks={tasks} taskIds={["visa", "travel", "housing", "insurance"]} />}
 
       <p className="mt-10">
-        <Annotation>{founder
-          ? "Fictional founder case. Check current licensing and immigration requirements with ADDED, ICP and the applicable authority."
-          : "Fictional employee case. Employer policy figures are sample data; check current requirements with the relevant authorities."}</Annotation>
+        <Annotation>{props.sampleCase
+          ? "Fictional example. Check current licensing, immigration and policy requirements with the relevant authorities."
+          : "Personal planning record. Confirm requirements, eligibility and fees with each issuing authority before applying or paying."}</Annotation>
       </p>
     </div>
   );

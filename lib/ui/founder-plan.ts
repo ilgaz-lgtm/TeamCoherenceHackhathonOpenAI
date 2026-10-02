@@ -5,12 +5,16 @@ import type { ScopedTask } from "./scope";
 
 export function buildFounderTasks(answers: FounderAnswers): ScopedTask[] {
   const coffee = /coffee|roaster|café|cafe/i.test(answers.businessType);
+  const food = coffee || /food|beverage|restaurant|bakery|catering/i.test(answers.businessType);
   const hasPremises = answers.premisesNeed !== "none";
   const hasFamily = answers.movingWithSpouse || answers.movingWithChild;
+  const spouseName = answers.spouseName ?? founderFamily.spouse;
+  const childName = answers.childName ?? founderFamily.child;
+  const childAge = answers.childAge ?? founderFamily.childAge;
   const householdMembers = [
     answers.name,
-    ...(answers.movingWithSpouse ? [founderFamily.spouse] : []),
-    ...(answers.movingWithChild ? [founderFamily.child] : []),
+    ...(answers.movingWithSpouse ? [spouseName] : []),
+    ...(answers.movingWithChild ? [childName] : []),
   ];
   const household = householdMembers.length > 1
     ? `${householdMembers.slice(0, -1).join(", ")} and ${householdMembers[householdMembers.length - 1]}`
@@ -83,7 +87,7 @@ export function buildFounderTasks(answers: FounderAnswers): ScopedTask[] {
     );
   }
 
-  if (coffee) {
+  if (food) {
     tasks.push(localTask(
       "food-approvals",
       "Map food-operation approvals",
@@ -101,7 +105,7 @@ export function buildFounderTasks(answers: FounderAnswers): ScopedTask[] {
       "Submit the final formation documents and fees for the Abu Dhabi economic licence.",
       "licensing",
       "company",
-      ["initial-approval", ...(hasPremises ? ["lease"] : []), ...(coffee ? ["food-approvals"] : [])],
+      ["initial-approval", ...(hasPremises ? ["lease"] : []), ...(food ? ["food-approvals"] : [])],
     ),
     localTask(
       "establishment-card",
@@ -111,6 +115,17 @@ export function buildFounderTasks(answers: FounderAnswers): ScopedTask[] {
       "company",
       ["licence"],
     ),
+    {
+      ...localTask(
+        "corporate-tax-review",
+        "Review corporate tax registration",
+        "Check FTA corporate tax registration requirements and timing for your licensed company; register if applicable.",
+        "tax",
+        "company",
+        ["establishment-card"],
+      ),
+      rationale: "Your company needs an FTA registration review after setup; confirm whether registration applies and the deadline before filing.",
+    },
     localTask(
       "business-bank",
       "Open business account",
@@ -135,24 +150,35 @@ export function buildFounderTasks(answers: FounderAnswers): ScopedTask[] {
   if (answers.relocatingSelf) {
     tasks.push(localTask(
       "founder-residence",
-      "Set founder residence route",
-      "Use the licensed company record to identify and apply for the owner residence route with ICP.",
+      "Confirm founder residence clearance",
+      "Use the licensed company record to apply for the owner residence route with ICP and track clearance before arrival.",
       "visa",
       "self",
       ["establishment-card"],
     ));
 
     if (hasFamily) {
+      const familyNames = [
+        ...(answers.movingWithSpouse ? [spouseName] : []),
+        ...(answers.movingWithChild ? [childName] : []),
+      ].join(" and ");
+      tasks.push({
+        ...localTask(
+          "family-documents",
+          "Gather family residence records",
+          `Gather identity and relationship records for ${familyNames} while your own residence route is being set.`,
+          "visa",
+          "self",
+        ),
+        rationale: "Your family records can be gathered while ICP processes your own route; gathering them does not grant entry clearance.",
+      });
       tasks.push(localTask(
         "family-sponsorship",
-        "Prepare family residence files",
-        `Prepare residence applications for ${[
-          ...(answers.movingWithSpouse ? [founderFamily.spouse] : []),
-          ...(answers.movingWithChild ? [founderFamily.child] : []),
-        ].join(" and ")} after your own route is set.`,
+        "Complete family residence files",
+        `Submit residence applications for ${familyNames} after your own status is confirmed; track each family member's clearance before arrival.`,
         "visa",
         "self",
-        ["founder-residence"],
+        ["founder-residence", "family-documents"],
       ));
     }
 
@@ -160,7 +186,7 @@ export function buildFounderTasks(answers: FounderAnswers): ScopedTask[] {
       tasks.push(localTask(
         "family-school",
         "Secure school placement",
-        `Request school places for ${founderFamily.childAge}-year-old ${founderFamily.child} before choosing a home area.`,
+        `Request school places for ${childAge}-year-old ${childName} before choosing a home area.`,
         "school",
         "self",
       ));
@@ -171,7 +197,7 @@ export function buildFounderTasks(answers: FounderAnswers): ScopedTask[] {
         "family-home",
         "Secure family home",
         answers.movingWithChild
-          ? `Choose and secure a residential lease that works for ${founderFamily.child}'s school and the business site.`
+          ? `Choose and secure a residential lease that works for ${childName}'s school and the business site.`
           : "Choose and secure a residential lease that works for the business location.",
         "housing",
         "self",
@@ -187,7 +213,7 @@ export function buildFounderTasks(answers: FounderAnswers): ScopedTask[] {
       localTask(
         "family-travel",
         "Sequence household arrival",
-        "Book arrival against the confirmed residence route and household documents.",
+        "Book arrival against the confirmed residence or entry permissions for each traveller.",
         "travel",
         "self",
         hasFamily ? ["family-sponsorship"] : ["founder-residence"],
@@ -211,7 +237,7 @@ export function buildFounderTasks(answers: FounderAnswers): ScopedTask[] {
         `Choose the first roles from the ${answers.headcountYearOne}-person staffing plan.`,
         "workforce",
         "team",
-        ["licence"],
+        [],
       ),
       localTask(
         "work-permit-quota",
