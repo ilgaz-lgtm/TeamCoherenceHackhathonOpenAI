@@ -1,7 +1,9 @@
-import type { Company, RelocationPlan, RelocationTask } from "@/types/relocation";
+import type { Company, Employee, RelocationPlan, RelocationTask } from "@/types/relocation";
+import type { EmployeeAnswers } from "@/lib/ui/personas";
+import { formatAed } from "./format";
 
-export type TaskCategory = RelocationTask["category"] | "licensing" | "premises" | "banking";
-export type TaskLayer = "company" | "people";
+export type TaskCategory = RelocationTask["category"] | "licensing" | "premises" | "banking" | "workforce";
+export type TaskLayer = "company" | "self" | "team" | "people";
 
 export type ScopedTask = Omit<RelocationTask, "category"> & {
   category: TaskCategory;
@@ -10,17 +12,24 @@ export type ScopedTask = Omit<RelocationTask, "category"> & {
   origin: "fixture" | "local";
 };
 
+export type BlockingContext = {
+  id: string;
+  title: string;
+  description: string;
+};
+
 const companyCategories = new Set<TaskCategory>(["licensing", "premises", "banking"]);
 
 export function companyIsEstablished(company: Company): boolean {
   return (company as Company & { isEstablishedInUAE?: boolean }).isEstablishedInUAE ?? true;
 }
 
-function localCompanyTask(
+export function localTask(
   id: string,
   title: string,
   description: string,
   category: TaskCategory,
+  layer: TaskLayer,
   dependsOn: string[] = [],
 ): ScopedTask {
   return {
@@ -28,55 +37,64 @@ function localCompanyTask(
     title,
     description,
     category,
+    layer,
     dependsOn,
     dueDate: null,
     status: "pending",
     priority: "high",
-    layer: "company",
     origin: "local",
   };
 }
 
-const localCompanyTasks: ScopedTask[] = [
-  localCompanyTask(
-    "premises",
-    "Confirm the premises route",
-    "Ask the licensing authority whether this licence route needs a physical address and which tenancy evidence it accepts before signing a lease.",
-    "premises",
-  ),
-  localCompanyTask(
-    "licensing",
-    "Secure the Abu Dhabi licence",
-    "Confirm the suitable licence route and submit the company registration documents to the relevant authority.",
-    "licensing",
-  ),
-  localCompanyTask(
-    "establishment-card",
-    "Obtain the establishment card",
-    "After the licence is issued, ask ICP for the current establishment card requirements and submit the company documents.",
-    "licensing",
-    ["licensing"],
-  ),
-  localCompanyTask(
-    "banking",
-    "Open a company bank account",
-    "Compare bank requirements and begin account opening with the issued company documents.",
-    "banking",
-    ["licensing"],
-  ),
-];
+export function buildEmployeeTasks(plan: RelocationPlan, answers: EmployeeAnswers, company: Company, employee: Employee): ScopedTask[] {
+  const spouse = employee.family.find((member) => member.relationship === "spouse");
+  const child = employee.family.find((member) => member.relationship === "child");
+  const movingNames = [
+    "you",
+    ...(answers.movingWithSpouse && spouse ? [spouse.name] : []),
+    ...(answers.movingWithChild && child ? [child.name] : []),
+  ];
+  const covered = movingNames.length === 1
+    ? "you"
+    : `${movingNames.slice(0, -1).join(", ")} and ${movingNames[movingNames.length - 1]}`;
+  const descriptions: Record<string, string> = {
+    visa: `Prepare your identity records${movingNames.length > 1 ? " and records for the family moving with you" : ""} for the employer-sponsored ICP application; track the decision before booking travel.`,
+    travel: `Book flights within ${formatAed(company.policy.flightAllowanceAED)} and reserve ${company.policy.temporaryAccommodationDays} days of temporary accommodation after visa clearance.`,
+    housing: `Shortlist ${employee.preferences.bedrooms}-bedroom homes within ${formatAed(company.policy.housingAllowanceAED)} annually and ${answers.maxCommuteMinutes} minutes of ${company.policy.officeLocation}.${answers.preferredArea.trim() ? ` Start with ${answers.preferredArea.trim()}.` : ""}`,
+    insurance: `Record the employer policy's effective health-cover dates for ${covered} before arrival.`,
+    settling: "Use the signed residential tenancy to open utility and telecom accounts at your home address.",
+    school: `Apply for a place for ${child?.name ?? "your child"}${child?.age ? `, ${child.age},` : ""} and compare tuition with the ${formatAed(company.policy.schoolAllowanceAED)} school allowance.`,
+  };
 
-export function buildScopedTasks(plan: RelocationPlan, established: boolean): ScopedTask[] {
-  const fixtureTasks: ScopedTask[] = plan.tasks.map((task) => ({
-    ...task,
-    layer: companyCategories.has(task.category) ? "company" : "people",
-    origin: "fixture",
-  }));
-  const companyTasks = fixtureTasks.filter((task) => task.layer === "company");
-  const peopleTasks = fixtureTasks.filter((task) => task.layer === "people");
+  return plan.tasks
+    .filter((task) => !companyCategories.has(task.category))
+    .filter((task) => task.category !== "school" || answers.movingWithChild)
+    .map((task) => ({
+      ...task,
+      title: task.id === "insurance" && !answers.movingWithSpouse && !answers.movingWithChild
+        ? "Confirm health coverage"
+        : task.title,
+      description: descriptions[task.id] ?? task.description,
+      dueDate: answers.startDate,
+      layer: "people" as const,
+      origin: "fixture" as const,
+    }));
+}
 
-  if (established) return peopleTasks;
-  return [...(companyTasks.length > 0 ? companyTasks : localCompanyTasks), ...peopleTasks];
+export function buildEmployeeBlockingContext(company: Company, plan: RelocationPlan): BlockingContext[] {
+  if (companyIsEstablished(company)) return [];
+
+  const fixtureCompanyTasks = plan.tasks.filter((task) => companyCategories.has(task.category));
+  if (fixtureCompanyTasks.length > 0) {
+    return fixtureCompanyTasks.map(({ id, title, description }) => ({ id, title, description }));
+  }
+
+  return [
+    { id: "employer-premises", title: "Employer premises route", description: "The employer must settle the location evidence required by its licence route." },
+    { id: "employer-licence", title: "Employer trade licence", description: "A valid trade licence is required before ICP issues an establishment card." },
+    { id: "employer-card", title: "Employer establishment card", description: "The card links the licensed company to its sponsorship file." },
+    { id: "employer-banking", title: "Employer banking", description: "The employer sets up its own operating and payment route." },
+  ];
 }
 
 export function blockingTasks(
@@ -85,8 +103,11 @@ export function blockingTasks(
   completed: ReadonlySet<string>,
 ): ScopedTask[] {
   const prerequisites = new Set(task.dependsOn);
-  if (task.layer === "people" && tasks.some((item) => item.layer === "company")) {
+  if (task.layer === "self" || task.layer === "team") {
     tasks.filter((item) => item.layer === "company").forEach((item) => prerequisites.add(item.id));
+  }
+  if (task.layer === "team") {
+    tasks.filter((item) => item.layer === "self").forEach((item) => prerequisites.add(item.id));
   }
   return tasks.filter((item) => prerequisites.has(item.id) && !completed.has(item.id));
 }

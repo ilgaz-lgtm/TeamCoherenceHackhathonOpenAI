@@ -7,8 +7,8 @@ export default function Home() {
     <main className="mx-auto max-w-[1120px] px-6 pb-20 pt-8 sm:px-8 sm:pt-12 lg:px-12">
       <header className="border-b border-rule-strong pb-8">
         <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2">
-          <FieldLabel>Abu Dhabi / Case 001</FieldLabel>
-          <Annotation>Sample record / {demoCompany.name}</Annotation>
+          <FieldLabel>Abu Dhabi / Case files</FieldLabel>
+          <Annotation>Two sample profiles</Annotation>
         </div>
         <div className="mt-8">
           <h1 className="font-heading text-6xl font-semibold uppercase leading-none text-ink sm:text-7xl">

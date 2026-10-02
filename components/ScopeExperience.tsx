@@ -1,10 +1,10 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { Annotation, FieldLabel, Figure, Rule, Sheet, SourceBadge, Stamp } from "@/components/primitives";
-import { rationaleForTask } from "@/lib/ui/rationale";
-import { blockingTasks, buildScopedTasks, companyIsEstablished } from "@/lib/ui/scope";
-import type { ScopedTask } from "@/lib/ui/scope";
+import { useState } from "react";
+import { PlanView } from "@/components/PlanView";
+import { Annotation, FieldLabel } from "@/components/primitives";
+import { employeeAnswersFromFixture, founderDemo, founderFamily } from "@/lib/ui/personas";
+import type { EmployeeAnswers, FounderAnswers, ViewerRole } from "@/lib/ui/personas";
 import type { Company, Employee, RelocationPlan } from "@/types/relocation";
 
 type ScopeExperienceProps = {
@@ -13,205 +13,256 @@ type ScopeExperienceProps = {
   plan: RelocationPlan;
 };
 
-type TaskListProps = Omit<ScopeExperienceProps, "plan"> & {
-  tasks: ScopedTask[];
-  allTasks: ScopedTask[];
-  completed: ReadonlySet<string>;
-  established: boolean;
-  onToggle: (id: string, checked: boolean) => void;
-};
-
-function TaskList({ tasks, allTasks, completed, company, employee, established, onToggle }: TaskListProps) {
-  return (
-    <ol className="mt-5 border-b border-rule">
-      {tasks.map((task, index) => {
-        const done = completed.has(task.id);
-        const blockers = done ? [] : blockingTasks(task, allTasks, completed);
-        const blocked = blockers.length > 0;
-        const companyBlockers = task.layer === "people" ? blockers.filter((item) => item.layer === "company") : [];
-        const cardBlocker = companyBlockers.find((item) => item.id === "establishment-card" || /establishment card/i.test(item.title));
-        const otherCompanyCount = companyBlockers.length - (cardBlocker ? 1 : 0);
-        const status = done ? "Complete" : blocked ? "Held" : task.status === "in_progress" ? "In progress" : "Ready";
-        const reason = rationaleForTask(task, { company, employee, established });
-
-        return (
-          <li key={task.id} className="grid gap-4 border-t border-rule py-6 md:grid-cols-[minmax(0,1fr)_minmax(0,0.85fr)] md:gap-10">
-            <div className="min-w-0">
-              <div className="flex items-start gap-3">
-                <input
-                  type="checkbox"
-                  aria-label={`Mark ${task.title} complete`}
-                  checked={done}
-                  disabled={blocked}
-                  onChange={(event) => onToggle(task.id, event.target.checked)}
-                  className="mt-1.5 h-4 w-4 shrink-0 accent-survey disabled:cursor-not-allowed"
-                />
-                <div className="min-w-0">
-                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-                    <FieldLabel>{String(index + 1).padStart(2, "0")} / {task.category}</FieldLabel>
-                    <span className={`font-mono text-[11px] uppercase ${blocked ? "text-warn" : done ? "text-verified" : "text-survey"}`}>
-                      {status}
-                    </span>
-                  </div>
-                  <h3 className="mt-2 font-heading text-xl font-semibold uppercase leading-tight text-ink">
-                    {task.title}
-                  </h3>
-                  <p className="mt-2 text-sm leading-relaxed text-ink-muted">{task.description}</p>
-                  {blocked && (
-                    <p className="mt-3 font-mono text-[11px] leading-5 text-warn">
-                      {companyBlockers.length > 0
-                        ? `Waiting on company setup${cardBlocker ? ` / ${cardBlocker.title}` : ""}${otherCompanyCount > 0 ? ` + ${otherCompanyCount} other ${otherCompanyCount === 1 ? "task" : "tasks"}` : ""}`
-                        : `Waiting on ${blockers.map((item) => item.title).join(" / ")}`}
-                    </p>
-                  )}
-                </div>
-              </div>
-            </div>
-            <div className="min-w-0 border-l-2 border-accent pl-4 md:pl-5">
-              <FieldLabel>Why this appears</FieldLabel>
-              <p className="mt-2 text-sm leading-relaxed text-ink">{reason}</p>
-            </div>
-          </li>
-        );
-      })}
-    </ol>
-  );
-}
+const inputClass = "mt-2 min-h-12 w-full border border-rule-strong bg-paper-raised px-3 py-2 text-sm text-ink outline-none focus:border-survey focus:outline-2 focus:outline-offset-2 focus:outline-survey";
+const roleOptions: { role: ViewerRole; label: string; description: string }[] = [
+  { role: "founder", label: "Founder", description: "I am setting up a company here" },
+  { role: "employee", label: "Employee", description: "I am joining a company that is bringing me here" },
+];
 
 export function ScopeExperience({ company, employee, plan }: ScopeExperienceProps) {
-  const [established, setEstablished] = useState<boolean | null>(null);
-  const [completed, setCompleted] = useState<Set<string>>(
-    () => new Set(plan.tasks.filter((task) => task.status === "completed").map((task) => task.id)),
-  );
-  const tasks = useMemo(
-    () => buildScopedTasks(plan, established ?? companyIsEstablished(company)),
-    [company, established, plan],
-  );
-  const companyTasks = tasks.filter((task) => task.layer === "company");
-  const peopleTasks = tasks.filter((task) => task.layer === "people");
-  const companyComplete = companyTasks.every((task) => completed.has(task.id));
+  const [viewerRole, setViewerRole] = useState<ViewerRole | null>(null);
+  const [founderAnswers, setFounderAnswers] = useState<FounderAnswers>({ ...founderDemo });
+  const [employeeAnswers, setEmployeeAnswers] = useState<EmployeeAnswers>(() => employeeAnswersFromFixture(company, employee));
+  const [planOpen, setPlanOpen] = useState(false);
 
-  function selectScope(value: boolean) {
-    setEstablished(value);
-    setCompleted(new Set(plan.tasks.filter((task) => task.status === "completed").map((task) => task.id)));
+  function chooseRole(role: ViewerRole) {
+    setViewerRole(role);
+    setPlanOpen(false);
   }
 
-  function toggleTask(id: string, checked: boolean) {
-    setCompleted((previous) => {
-      const next = new Set(previous);
-      if (checked) {
-        next.add(id);
-      } else {
-        next.delete(id);
-        // Removing a prerequisite also reopens completed downstream tasks.
-        let changed = true;
-        while (changed) {
-          changed = false;
-          for (const task of tasks) {
-            if (next.has(task.id) && blockingTasks(task, tasks, next).length > 0) {
-              next.delete(task.id);
-              changed = true;
-            }
-          }
-        }
-      }
-      return next;
-    });
+  function updateFounder(patch: Partial<FounderAnswers>) {
+    setFounderAnswers((previous) => ({ ...previous, ...patch }));
+    setPlanOpen(false);
+  }
+
+  function updateEmployee(patch: Partial<EmployeeAnswers>) {
+    setEmployeeAnswers((previous) => ({ ...previous, ...patch }));
+    setPlanOpen(false);
   }
 
   return (
     <>
-      <section aria-labelledby="scope-question" className="border-b border-rule-strong py-10">
-        <FieldLabel>01 / Company status</FieldLabel>
-        <h2 id="scope-question" className="mt-3 max-w-2xl font-heading text-2xl font-semibold uppercase leading-tight text-ink sm:text-3xl">
-          Is your company already established in the UAE?
+      <section aria-labelledby="role-question" className="border-b border-rule-strong py-10">
+        <FieldLabel>Q0 / Your role</FieldLabel>
+        <h2 id="role-question" className="mt-3 max-w-2xl font-heading text-2xl font-semibold uppercase leading-tight text-ink sm:text-3xl">
+          What brings you to Abu Dhabi?
         </h2>
-        <fieldset className="mt-6 flex w-full max-w-xs border border-rule-strong">
-          <legend className="sr-only">Is your company already established in the UAE?</legend>
-          {([true, false] as const).map((value) => (
-            <label key={String(value)} className={`flex min-h-12 flex-1 cursor-pointer items-center justify-center border-r border-rule-strong text-sm font-medium last:border-r-0 focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-survey ${established === value ? "bg-ink text-paper-raised" : "bg-paper-raised text-ink hover:bg-paper-sunk"}`}>
+        <fieldset className="mt-6 grid gap-3 sm:grid-cols-2">
+          <legend className="sr-only">What brings you to Abu Dhabi?</legend>
+          {roleOptions.map(({ role, label, description }) => (
+            <label
+              key={role}
+              className={`flex min-h-24 cursor-pointer flex-col justify-center border border-rule-strong px-4 py-3 focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-survey ${viewerRole === role ? "bg-ink text-paper-raised" : "bg-paper-raised text-ink hover:bg-paper-sunk"}`}
+            >
               <input
                 type="radio"
-                name="company-established"
-                value={String(value)}
-                checked={established === value}
-                onChange={() => selectScope(value)}
+                name="viewer-role"
+                value={role}
+                checked={viewerRole === role}
+                onChange={() => chooseRole(role)}
                 className="sr-only"
               />
-              {value ? "Yes" : "No"}
+              <span className={`font-mono text-[11px] font-medium uppercase ${viewerRole === role ? "text-paper-raised" : "text-ink-muted"}`}>
+                {label}
+              </span>
+              <span className="mt-1 text-sm leading-snug">{description}</span>
             </label>
           ))}
         </fieldset>
       </section>
 
-      {established !== null && (
-        <div className="pt-10">
-          <Sheet level="raised" titleBlock={`02 / ${established ? "Relocation file" : "Company and relocation file"}`} aria-label="Case file">
-            <div className="flex flex-wrap items-start justify-between gap-6">
-              <div>
-                <FieldLabel>Employee / Employer</FieldLabel>
-                <h2 className="mt-2 font-heading text-3xl font-semibold uppercase leading-tight text-ink sm:text-4xl">
-                  {employee.name}
-                </h2>
-                <p className="mt-2 text-sm text-ink-muted">{employee.role} / {company.name}</p>
-              </div>
-              <Stamp>Sample data</Stamp>
+      {viewerRole && (
+        <form
+          className="border-b border-rule-strong py-10"
+          onSubmit={(event) => {
+            event.preventDefault();
+            setPlanOpen(true);
+          }}
+        >
+          <div className="flex flex-wrap items-end justify-between gap-3">
+            <div>
+              <FieldLabel>Q1 / {viewerRole === "founder" ? "Founder intake" : "Employee intake"}</FieldLabel>
+              <h2 className="mt-2 font-heading text-2xl font-semibold uppercase leading-tight text-ink sm:text-3xl">
+                {viewerRole === "founder" ? founderAnswers.name : employee.name}
+              </h2>
             </div>
-            <Rule className="my-8" />
-            <div className="grid gap-8 sm:grid-cols-2">
-              <div className="flex flex-col items-start gap-2">
-                <FieldLabel>Housing allowance / Year</FieldLabel>
-                <Figure value={company.policy.housingAllowanceAED} format="aed" className="text-2xl text-ink sm:text-3xl" />
-                <Annotation>Company policy / Annual cap</Annotation>
-              </div>
-              <div className="flex flex-col items-start gap-2">
-                <FieldLabel>Start date</FieldLabel>
-                <Figure value={employee.startDate} className="text-xl text-ink sm:text-2xl" />
-                <Annotation>Employee record / Confirm with HR</Annotation>
-              </div>
-            </div>
-            <Rule className="my-8" />
-            <SourceBadge source="Demo company policy" />
-          </Sheet>
+            <Annotation>{viewerRole === "founder" ? founderAnswers.businessName : company.name} / Sample profile</Annotation>
+          </div>
 
-          {companyTasks.length > 0 && (
-            <section aria-labelledby="company-layer" className="pt-12">
-              <div className="flex flex-wrap items-end justify-between gap-3">
-                <div>
-                  <FieldLabel>Layer A / Company</FieldLabel>
-                  <h2 id="company-layer" className="mt-2 font-heading text-2xl font-semibold uppercase text-ink sm:text-3xl">Establish the company</h2>
-                </div>
-                <Annotation>Licence / Establishment card / Operations</Annotation>
+          {viewerRole === "founder" ? (
+            <div className="mt-8 grid gap-x-8 gap-y-7 sm:grid-cols-2">
+              <div className="sm:col-span-2">
+                <FieldLabel htmlFor="business-type">What kind of business are you building?</FieldLabel>
+                <input
+                  id="business-type"
+                  type="text"
+                  required
+                  maxLength={100}
+                  value={founderAnswers.businessType}
+                  onChange={(event) => updateFounder({ businessType: event.target.value })}
+                  className={inputClass}
+                />
               </div>
-              <TaskList tasks={companyTasks} allTasks={tasks} completed={completed} established={established} company={company} employee={employee} onToggle={toggleTask} />
-            </section>
+              <div>
+                <FieldLabel htmlFor="customer-market">Who will pay you?</FieldLabel>
+                <select
+                  id="customer-market"
+                  value={founderAnswers.customerMarket}
+                  onChange={(event) => updateFounder({ customerMarket: event.target.value as FounderAnswers["customerMarket"] })}
+                  className={inputClass}
+                >
+                  <option value="uae-domestic">UAE domestic customers</option>
+                  <option value="export">Export customers</option>
+                  <option value="international">International customers</option>
+                </select>
+              </div>
+              <div>
+                <FieldLabel htmlFor="headcount">How many staff in year one?</FieldLabel>
+                <input
+                  id="headcount"
+                  type="number"
+                  min={1}
+                  max={100}
+                  required
+                  value={founderAnswers.headcountYearOne}
+                  onChange={(event) => updateFounder({ headcountYearOne: Number(event.target.value) })}
+                  className={inputClass}
+                />
+              </div>
+              <div className="sm:col-span-2">
+                <FieldLabel htmlFor="premises-need">What premises do you need?</FieldLabel>
+                <select
+                  id="premises-need"
+                  value={founderAnswers.premisesNeed}
+                  onChange={(event) => updateFounder({ premisesNeed: event.target.value as FounderAnswers["premisesNeed"] })}
+                  className={inputClass}
+                >
+                  <option value="customer-facing">Customer-facing premises</option>
+                  <option value="production-only">Production-only premises</option>
+                  <option value="none">No dedicated premises</option>
+                </select>
+              </div>
+              <fieldset className="sm:col-span-2">
+                <legend className="font-mono text-[11px] font-medium uppercase text-ink-muted">Are you relocating yourself?</legend>
+                <div className="mt-3 flex flex-wrap gap-x-8 gap-y-3">
+                  {([true, false] as const).map((value) => (
+                    <label key={String(value)} className="flex cursor-pointer items-center gap-2 text-sm text-ink">
+                      <input
+                        type="radio"
+                        name="founder-relocating"
+                        checked={founderAnswers.relocatingSelf === value}
+                        onChange={() => updateFounder({ relocatingSelf: value })}
+                        className="h-4 w-4 accent-survey"
+                      />
+                      {value ? "Yes" : "No"}
+                    </label>
+                  ))}
+                </div>
+              </fieldset>
+              {founderAnswers.relocatingSelf && (
+                <fieldset className="sm:col-span-2">
+                  <legend className="font-mono text-[11px] font-medium uppercase text-ink-muted">Who is moving with you?</legend>
+                  <div className="mt-3 flex flex-wrap gap-x-8 gap-y-3">
+                    <label className="flex cursor-pointer items-center gap-2 text-sm text-ink">
+                      <input
+                        type="checkbox"
+                        checked={founderAnswers.movingWithSpouse}
+                        onChange={(event) => updateFounder({ movingWithSpouse: event.target.checked })}
+                        className="h-4 w-4 accent-survey"
+                      />
+                      {founderFamily.spouse} / Spouse
+                    </label>
+                    <label className="flex cursor-pointer items-center gap-2 text-sm text-ink">
+                      <input
+                        type="checkbox"
+                        checked={founderAnswers.movingWithChild}
+                        onChange={(event) => updateFounder({ movingWithChild: event.target.checked })}
+                        className="h-4 w-4 accent-survey"
+                      />
+                      {founderFamily.child} / Child, {founderFamily.childAge}
+                    </label>
+                  </div>
+                </fieldset>
+              )}
+            </div>
+          ) : (
+            <div className="mt-8 grid gap-x-8 gap-y-7 sm:grid-cols-2">
+              <div>
+                <FieldLabel htmlFor="employer-name">Which employer is bringing you?</FieldLabel>
+                <input
+                  id="employer-name"
+                  type="text"
+                  required
+                  value={employeeAnswers.employerName}
+                  onChange={(event) => updateEmployee({ employerName: event.target.value })}
+                  className={inputClass}
+                />
+              </div>
+              <div>
+                <FieldLabel htmlFor="start-date">When do you start?</FieldLabel>
+                <input
+                  id="start-date"
+                  type="date"
+                  required
+                  value={employeeAnswers.startDate}
+                  onChange={(event) => updateEmployee({ startDate: event.target.value })}
+                  className={inputClass}
+                />
+              </div>
+              <fieldset className="sm:col-span-2">
+                <legend className="font-mono text-[11px] font-medium uppercase text-ink-muted">Who is moving with you?</legend>
+                <div className="mt-3 flex flex-wrap gap-x-8 gap-y-3">
+                  {employee.family.map((member) => (
+                    <label key={member.name} className="flex cursor-pointer items-center gap-2 text-sm text-ink">
+                      <input
+                        type="checkbox"
+                        checked={member.relationship === "spouse" ? employeeAnswers.movingWithSpouse : employeeAnswers.movingWithChild}
+                        onChange={(event) => updateEmployee(member.relationship === "spouse"
+                          ? { movingWithSpouse: event.target.checked }
+                          : { movingWithChild: event.target.checked })}
+                        className="h-4 w-4 accent-survey"
+                      />
+                      {member.name} / {member.relationship === "child" ? `Child, ${member.age}` : "Spouse"}
+                    </label>
+                  ))}
+                </div>
+              </fieldset>
+              <div>
+                <FieldLabel htmlFor="preferred-area">Where would you like to live?</FieldLabel>
+                <select
+                  id="preferred-area"
+                  value={employeeAnswers.preferredArea}
+                  onChange={(event) => updateEmployee({ preferredArea: event.target.value })}
+                  className={inputClass}
+                >
+                  {employee.preferences.preferredAreas.map((area) => <option key={area} value={area}>{area}</option>)}
+                </select>
+              </div>
+              <div>
+                <FieldLabel htmlFor="commute">Maximum commute to {company.policy.officeLocation}?</FieldLabel>
+                <input
+                  id="commute"
+                  type="number"
+                  min={1}
+                  max={180}
+                  required
+                  value={employeeAnswers.maxCommuteMinutes}
+                  onChange={(event) => updateEmployee({ maxCommuteMinutes: Number(event.target.value) })}
+                  className={inputClass}
+                />
+              </div>
+            </div>
           )}
 
-          <section aria-labelledby="people-layer" className="pt-12">
-            <div className="flex flex-wrap items-end justify-between gap-3">
-              <div>
-                <FieldLabel>{established || companyComplete ? "Layer B / People" : "Layer B / People / Held until company setup"}</FieldLabel>
-                <h2 id="people-layer" className="mt-2 font-heading text-2xl font-semibold uppercase text-ink sm:text-3xl">Relocate the people</h2>
-              </div>
-              <Annotation>{peopleTasks.length} tasks / {employee.name}</Annotation>
-            </div>
-            {!established && (
-              <p className="mt-5 max-w-3xl border-l-2 border-survey pl-4 text-sm leading-relaxed text-ink">
-                {company.policy.visaSponsorship
-                  ? "Your sponsored residence process depends on the establishment card; ICP requires a valid licence before that card can be issued. "
-                  : "Your employer has not confirmed a sponsorship route; HR must confirm which immigration steps apply. "}
-                {companyComplete
-                  ? "With company tasks marked complete in this sample, people tasks now follow their own dependencies."
-                  : "Other people tasks are held here until company setup is complete."}
-              </p>
-            )}
-            <TaskList tasks={peopleTasks} allTasks={tasks} completed={completed} established={established} company={company} employee={employee} onToggle={toggleTask} />
-          </section>
+          <button type="submit" style={{ color: "var(--paper-raised)" }} className="mt-8 min-h-12 border border-ink bg-ink px-6 py-2 text-sm font-medium hover:bg-rule-strong focus:outline-2 focus:outline-offset-2 focus:outline-survey">
+            View plan
+          </button>
+        </form>
+      )}
 
-          <p className="mt-10">
-            <Annotation>Fictional demo data. Confirm current immigration, insurance, schooling and licensing requirements with HR and relevant authorities.</Annotation>
-          </p>
-        </div>
+      {planOpen && viewerRole === "founder" && <PlanView viewerRole="founder" answers={founderAnswers} />}
+      {planOpen && viewerRole === "employee" && (
+        <PlanView viewerRole="employee" answers={employeeAnswers} company={company} employee={employee} plan={plan} />
       )}
     </>
   );
