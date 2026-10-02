@@ -100,7 +100,7 @@ export function founderRationaleByTaskId(answers: FounderAnswers): Record<string
     "employee-arrivals": coffee
       ? `Permit approval, not your café opening date, determines when the first ${count} hires can join the rota.`
       : `Permit approval, not your business opening date, determines when the first ${count} hires can start.`,
-    "employee-coverage": `${countUpper} year-one hires will not all enter on the same date, so your staff policy must start cover per hire, not at your opening.`,
+    "employee-coverage": `${countUpper} year-one hires make the ${coffee ? "café" : "business"} opening date an unsafe proxy for cover; your staff policy must follow each approved hire date.`,
   };
 }
 
@@ -127,7 +127,7 @@ export function employeeRationaleByTaskId(
     visa: `${start} is a work start, not an entry clearance date; your sponsored visa outcome sets when ${travellers} can travel.`,
     travel: `${initialCapital(stay)} days of temporary accommodation start with arrival, so a visa delay consumes the allowance if you book from the ${start} work date.`,
     housing: `The ${answers.maxCommuteMinutes}-minute ADGM commute narrows ${bedrooms}-bedroom homes within your ${formatAed(company.policy.housingAllowanceAED)} cap; a cheaper listing outside that radius still fails the brief.`,
-    insurance: `The company’s “${company.policy.healthInsuranceCoverage.toLowerCase()}” policy lists ${covered}, but your ${start} start date does not establish when their cover begins.`,
+    insurance: `“${company.policy.healthInsuranceCoverage}” is the stated policy scope; your ${start} start date does not establish when cover begins for ${covered}.`,
     settling: `A residential tenancy, not the ${start} work start, gives utilities the address they use to open your household accounts.`,
     school: `An offered seat for ${countText(child?.age ?? 8)}-year-old ${child?.name ?? "Jamie"} fixes the school-run radius, so you shortlist housing around the school rather than reverse that order.`,
   };
