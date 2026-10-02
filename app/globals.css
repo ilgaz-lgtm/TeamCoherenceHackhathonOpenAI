@@ -74,21 +74,24 @@ body {
   line-height: 1.55;
 }
 
-button,
-input,
-textarea,
-select {
-  font: inherit;
-}
+@layer base {
+  button,
+  input,
+  textarea,
+  select {
+    font: inherit;
+  }
 
-button {
-  color: inherit;
-}
+  button {
+    color: inherit;
+    text-transform: inherit;
+  }
 
-a {
-  color: inherit;
-  text-decoration-thickness: 1px;
-  text-underline-offset: 0.18em;
+  a {
+    color: inherit;
+    text-decoration-thickness: 1px;
+    text-underline-offset: 0.18em;
+  }
 }
 
 :where(a, button, input, select, textarea, summary, [role="button"], [tabindex]:not([tabindex="-1"])):focus-visible {

@@ -28,18 +28,18 @@ export const questions: Record<QuestionKey, QuestionDefinition> = {
   },
   visaStage: {
     title: "Has your employer started your visa?",
-    note: "Your employer is your sponsor. Where they are in the process is where your plan begins.",
+    note: "Entry permission and residence are separate decisions. Tell us which entry-permit stage your employer has confirmed.",
     options: [
       { value: "not_started", label: "Not yet", consequence: "PLAN STARTS AT ENTRY PERMIT" },
       { value: "filed", label: "Entry permit filed", consequence: "IN PROGRESS" },
-      { value: "approved", label: "Entry permit approved", consequence: "MEDICAL NEXT" },
+      { value: "approved", label: "Entry permit approved", consequence: "ENTRY CLEARED · RESIDENCE NEXT" },
     ],
   },
   allowance: {
     title: "Does your package include a housing allowance?",
     options: [
       { value: "yes", label: "Yes, a housing allowance", consequence: "SETS YOUR RENT BUDGET" },
-      { value: "provided", label: "Housing is provided", consequence: "NO LEASE TO SIGN" },
+      { value: "provided", label: "Housing is provided", consequence: "CONFIRM ADDRESS + FAMILY ACCESS" },
       { value: "no", label: "No, rent comes from salary", consequence: "BUDGET FROM SALARY" },
     ],
   },
@@ -62,7 +62,7 @@ export const questions: Record<QuestionKey, QuestionDefinition> = {
   },
   pays: {
     title: "Who pays you?",
-    note: "Whether you invoice UAE customers directly is what separates a mainland licence from a free-zone one.",
+    note: "Your customer markets help compare licence routes. ADDED and the chosen free zone must confirm the activities and market access each route allows.",
     options: [
       { value: "uae_domestic", label: "Customers in the UAE, invoiced directly", consequence: "MAINLAND LIKELY" },
       { value: "export_only", label: "Customers outside the UAE only", consequence: "FREE ZONE VIABLE" },
@@ -72,7 +72,7 @@ export const questions: Record<QuestionKey, QuestionDefinition> = {
   },
   payroll: {
     title: "How many people on payroll in year one?",
-    note: "Headcount decides the premises you need, and the premises decide the licence.",
+    note: "Headcount sets your hiring brief. Premises and permit capacity still depend on the activity and the issuing authority.",
   },
   where: {
     title: "Where does the work happen?",
@@ -80,14 +80,14 @@ export const questions: Record<QuestionKey, QuestionDefinition> = {
       { value: "customer_facing", label: "Customers walk in", consequence: "ADDED MATTER" },
       { value: "office_only", label: "An office, no walk-ins", consequence: "EITHER ROUTE" },
       { value: "warehouse", label: "A warehouse or storage space", consequence: "ZONING CHECK" },
-      { value: "remote", label: "Remote — no fixed premises", consequence: "FLEXI-DESK VIABLE" },
+      { value: "remote", label: "Remote — no fixed premises", consequence: "CHECK REGISTERED ADDRESS ROUTE" },
     ],
   },
   moving: {
     title: "Who is moving?",
     options: [
       { value: "solo", label: "Just me", consequence: "ONE VISA" },
-      { value: "with_partner", label: "Me and a partner", consequence: "+ SPONSORSHIP" },
+      { value: "with_partner", label: "Me and a partner", consequence: "+ PARTNER ENTRY ROUTE" },
       { value: "with_family", label: "Me, a partner and children", consequence: "+ SCHOOL DEADLINE" },
     ],
   },
@@ -96,12 +96,13 @@ export const questions: Record<QuestionKey, QuestionDefinition> = {
   },
   area: {
     title: "Where would you like to live?",
-    note: "Commute is estimated to Al Maryah Island. Estimates only.",
+    note: "This is a starting preference, not a commute estimate. Compare it against your actual workplace and any school offer before choosing a lease.",
     options: [
-      { value: "reem", label: "Al Reem Island", consequence: "CITY · SHORT COMMUTE" },
-      { value: "raha", label: "Al Raha Beach", consequence: "MID-DISTANCE · NEAR YAS" },
-      { value: "khalifa", label: "Khalifa City", consequence: "VILLAS · LONGER DRIVE" },
+      { value: "reem", label: "Al Reem Island", consequence: "START YOUR SEARCH HERE" },
+      { value: "raha", label: "Al Raha Beach", consequence: "START YOUR SEARCH HERE" },
+      { value: "khalifa", label: "Khalifa City", consequence: "START YOUR SEARCH HERE" },
       { value: "saadiyat", label: "Saadiyat Island", consequence: "SCHOOLS · CULTURAL DISTRICT" },
+      { value: "undecided", label: "I have not chosen an area", consequence: "WORKPLACE + SCHOOL FIRST" },
     ],
   },
 };
@@ -165,6 +166,21 @@ export function firstUnanswered(answers: OnboardingAnswers): QuestionKey | undef
   return sequenceFor(answers).find((key) => answers[key] === undefined);
 }
 
+export function validOnboardingAnswers(value: unknown): value is OnboardingAnswers {
+  if (!value || typeof value !== "object") return false;
+  const answers = value as OnboardingAnswers;
+  if (answers.role !== "founder" && answers.role !== "employee") return false;
+  const active = sequenceFor(answers);
+  if (firstUnanswered(answers) || Object.keys(answers).some((key) => !active.includes(key as QuestionKey))) return false;
+  return active.every((key) => {
+    const answer = answers[key];
+    if (key === "payroll") return typeof answer === "number" && Number.isInteger(answer) && answer >= 1 && answer <= 50;
+    if (key === "when") return typeof answer === "string" && /^\d{4}-\d{2}-\d{2}$/.test(answer)
+      && Number.isFinite(Date.parse(`${answer}T00:00:00Z`)) && new Date(`${answer}T00:00:00Z`).toISOString().slice(0, 10) === answer;
+    return questions[key].options?.some((option) => option.value === answer) ?? false;
+  });
+}
+
 export function questionTotal(answers: OnboardingAnswers): string {
   if (answers.role === "employee") return "06";
   if (answers.role === "founder" && answers.established === "yes") return "05";
@@ -181,16 +197,14 @@ export function optionsFor(key: QuestionKey, todayISO: string): readonly Questio
     return targetDates(todayISO).map(({ value, label }) => ({
       value,
       label,
-      consequence: value.slice(5, 7) === "08" ? "SCHOOL INTAKE" : `≈ DAY ${dayFromToday(value, todayISO)}`,
+      consequence: `≈ DAY ${dayFromToday(value, todayISO)}`,
     }));
   }
   return questions[key].options ?? [];
 }
 
 export function payrollNote(count: number): string {
-  if (count <= 3) return "A FLEXI-DESK MAY COVER THIS — TODO(verify)";
-  if (count <= 7) return "A SMALL REGISTERED OFFICE IS LIKELY";
-  return "DEDICATED FLOOR AREA — PREMISES BECOME A HIRING CONSTRAINT";
+  return `${count} HIRING FILE${count === 1 ? "" : "S"} · PERMIT CAPACITY AND PREMISES REQUIRE AUTHORITY CONFIRMATION`;
 }
 
 export function answerLabel(key: QuestionKey, value: string | number, todayISO: string): string {

@@ -29,7 +29,7 @@ const statusLabels = {
   optional: "OPTIONAL",
 } as const;
 
-export function TaskRoom({ task }: { task: TaskRoomData }) {
+export function TaskRoom({ task, onOpen }: { task: TaskRoomData; onOpen?: (id: string) => void }) {
   const large = (task.rows ?? 1) > 1 || task.columns >= 7;
   const blocked = task.status === "blocked";
   const className = [
@@ -47,7 +47,7 @@ export function TaskRoom({ task }: { task: TaskRoomData }) {
         <span className={styles.roomId}>{task.id} · {task.category.toUpperCase()}</span>
         <span className={styles.roomStatus}>{task.critical && !blocked ? "CRITICAL · " : ""}{statusLabels[task.status]}</span>
       </div>
-      <h3 className={styles.roomTitle}>{task.title}</h3>
+      <h3 className={styles.roomTitle}>{onOpen ? <button type="button" onClick={() => onOpen(task.id)} className="min-h-11 text-left hover:underline underline-offset-4">{task.title}</button> : task.title}</h3>
       <p className={styles.roomDescription}>{task.description}</p>
       <p className={styles.roomRationale}>{task.rationale}</p>
       {blocked && task.waitingOn && task.waitingOn.length > 0 && (
@@ -66,11 +66,12 @@ export function TaskRoom({ task }: { task: TaskRoomData }) {
       <div className={styles.roomFoot}>
         {task.estimateWorkingDays && <span className={styles.durationBadge}>EST. {task.estimateWorkingDays.low}–{task.estimateWorkingDays.high} WORKING DAYS · TODO(verify)</span>}
         {task.authority && <SourceBadge authority={task.authority} />}
+        {onOpen && <button type="button" onClick={() => onOpen(task.id)} className="ml-auto min-h-11 border-b border-rule font-mono text-[11px] uppercase hover:border-accent">Open action →</button>}
       </div>
     </article>
   );
 }
 
-export function TaskRoomGrid({ tasks, className = "" }: { tasks: TaskRoomData[]; className?: string }) {
-  return <div className={`${styles.roomGrid} ${className}`}>{tasks.map((task) => <TaskRoom key={task.id} task={task} />)}</div>;
+export function TaskRoomGrid({ tasks, className = "", onOpen }: { tasks: TaskRoomData[]; className?: string; onOpen?: (id: string) => void }) {
+  return <div className={`${styles.roomGrid} ${className}`}>{tasks.map((task) => <TaskRoom key={task.id} task={task} onOpen={onOpen} />)}</div>;
 }

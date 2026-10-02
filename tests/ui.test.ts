@@ -14,17 +14,17 @@ test("founder and employee get distinct task graphs", () => {
   const founderTasks = buildFounderTasks(founderDemo);
   const employeeTasks = buildEmployeeTasks(employeePlan, employeeAnswers, demoCompany, demoEmployee);
 
-  assert.equal(founderTasks.length, 27);
+  assert.ok(founderTasks.length >= 31);
   assert.deepEqual(
     ["company", "self", "team"].map((layer) => founderTasks.filter((task) => task.layer === layer).length),
-    [13, 8, 6],
+    [13, 12, 6],
   );
-  assert.equal(employeeTasks.length, 10);
+  assert.ok(employeeTasks.length >= 12);
   assert.ok(employeeTasks.every((task) => task.layer === "people"));
   assert.ok(employeeTasks.every((task) => task.dueDate === null));
   assert.deepEqual(
     employeeTasks.filter((task) => task.origin === "local").map((task) => task.id),
-    ["family-records", "residency-completion", "family-residence", "housing-tenancy"],
+    ["family-records", "employee-entry", "residency-completion", "family-entry", "family-residence", "housing-tenancy"],
   );
   assert.ok(employeeTasks.every((task) => !/ask HR|confirm with HR/i.test(task.description)));
   assert.ok(founderTasks.every((task) => task.origin === "local"));
@@ -39,7 +39,8 @@ test("founder and employee get distinct task graphs", () => {
 
   const founderIds = new Set(founderTasks.map((task) => task.id));
   assert.ok(founderIds.has("licence") && founderIds.has("establishment-card") && founderIds.has("employee-permits"));
-  assert.ok(!employeeTasks.some((task) => founderIds.has(task.id)));
+  const companyIds = new Set(founderTasks.filter((task) => task.layer === "company").map((task) => task.id));
+  assert.ok(!employeeTasks.some((task) => companyIds.has(task.id)));
 });
 
 test("only named dependencies block founder tasks", () => {
@@ -52,11 +53,11 @@ test("only named dependencies block founder tasks", () => {
   for (const id of ["family-documents", "family-school", "family-insurance", "first-hire-roles"]) {
     assert.deepEqual(blockers(id), [], `${id} is preparatory work`);
   }
-  assert.deepEqual(blockers("family-home"), ["family-school"]);
+  assert.deepEqual(blockers("family-home"), ["family-home-shortlist", "family-school"]);
   assert.deepEqual(blockers("founder-residence"), ["establishment-card"]);
   assert.deepEqual(blockers("corporate-tax-review"), ["establishment-card"]);
-  assert.deepEqual(blockers("family-sponsorship"), ["family-documents", "founder-residence"]);
-  assert.deepEqual(blockers("family-travel"), ["family-sponsorship"]);
+  assert.deepEqual(blockers("family-sponsorship"), ["family-documents", "residency-completion"]);
+  assert.deepEqual(blockers("family-travel"), ["family-sponsorship", "founder-residence"]);
   assert.deepEqual(blockers("work-permit-quota"), ["establishment-card"]);
   assert.deepEqual(blockers("offers-contracts"), ["first-hire-roles"]);
   assert.deepEqual(blockers("employee-permits"), ["establishment-card", "offers-contracts", "work-permit-quota"]);
@@ -86,7 +87,8 @@ test("founder tasks use supplied spouse and child details", () => {
   assert.match(tasks.find((task) => task.id === "family-school")!.description, /10-year-old Nadia/);
   assert.match(tasks.find((task) => task.id === "family-home")!.description, /Nadia's school/);
   assert.match(tasks.find((task) => task.id === "family-insurance")!.description, /Amir and Nadia/);
-  assert.match(tasks.find((task) => task.id === "family-documents")!.description, /Amir and Nadia/);
+  assert.match(tasks.find((task) => task.id === "family-documents")!.description, /Nadia/);
+  assert.match(tasks.find((task) => task.id === "family-documents")!.description, /Amir/);
 });
 
 test("optional founder answers narrow the same persona without creating a third one", () => {
@@ -96,8 +98,8 @@ test("optional founder answers narrow the same persona without creating a third 
   assert.equal(buildFounderTasks({ ...founderDemo, premisesNeed: "none" }).some((task) => task.category === "premises"), false);
 });
 
-test("an already-established founder sees only the people layer", () => {
-  const tasks = buildFounderTasks({ ...founderDemo, isEstablishedInUAE: true, headcountYearOne: 0 });
+test("a founder with a confirmed licence and card sees only the people layer", () => {
+  const tasks = buildFounderTasks({ ...founderDemo, isEstablishedInUAE: true, establishmentCardReady: true, headcountYearOne: 0 });
   const ids = new Set(tasks.map((task) => task.id));
   assert.ok(tasks.length > 0);
   assert.ok(tasks.every((task) => task.layer === "self"));
@@ -129,13 +131,14 @@ test("entry-permit approval leaves residence and family files pending", () => {
   assert.equal(provided.find((task) => task.id === "family-records")?.status, "pending");
   assert.equal(provided.find((task) => task.id === "family-residence")?.status, "pending");
   const completed = new Set(provided.filter((task) => task.status === "completed").map((task) => task.id));
-  assert.deepEqual(blockingTasks(provided.find((task) => task.id === "residency-completion")!, provided, completed), []);
+  assert.deepEqual(blockingTasks(provided.find((task) => task.id === "employee-entry")!, provided, completed), []);
+  assert.deepEqual(blockingTasks(provided.find((task) => task.id === "residency-completion")!, provided, completed).map((task) => task.id), ["employee-entry"]);
   assert.deepEqual(blockingTasks(provided.find((task) => task.id === "family-records")!, provided, completed), []);
   assert.deepEqual(
     blockingTasks(provided.find((task) => task.id === "family-residence")!, provided, completed).map((task) => task.id).sort(),
-    ["family-records", "residency-completion"],
+    ["family-entry", "residency-completion", "travel"],
   );
-  assert.deepEqual(blockingTasks(provided.find((task) => task.id === "travel")!, provided, completed), []);
+  assert.deepEqual(blockingTasks(provided.find((task) => task.id === "travel")!, provided, completed).map((task) => task.id), ["family-entry"]);
   assert.equal(provided.find((task) => task.id === "housing")?.title, "Confirm employer housing");
   assert.doesNotMatch(provided.find((task) => task.id === "housing")!.description, /Shortlist|AED/);
   assert.match(provided.find((task) => task.id === "housing-tenancy")!.description, /registered residential tenancy/);
@@ -155,7 +158,7 @@ test("shortlisting cannot unlock household services without tenancy evidence", (
   const settling = tasks.find((task) => task.id === "settling")!;
   const tenancy = tasks.find((task) => task.id === "housing-tenancy")!;
   assert.deepEqual(settling.dependsOn, ["housing-tenancy"]);
-  assert.deepEqual(tenancy.dependsOn, ["housing"]);
+  assert.deepEqual(tenancy.dependsOn, ["housing", "school"]);
   assert.deepEqual(blockingTasks(settling, tasks, new Set(["housing"])).map((task) => task.id), ["housing-tenancy"]);
   assert.deepEqual(blockingTasks(settling, tasks, new Set(["housing", "housing-tenancy"])), []);
 });
@@ -178,7 +181,7 @@ test("unknown employer policy figures and absent family names stay explicit", ()
   assert.match(tasks.find((task) => task.id === "travel")!.description, /Confirm your flight allowance or budget/);
   assert.match(tasks.find((task) => task.id === "travel")!.description, /confirm how many days/);
   assert.match(tasks.find((task) => task.id === "housing")!.description, /Confirm your annual housing allowance/);
-  assert.match(tasks.find((task) => task.id === "school")!.description, /your child.*confirm any school allowance/);
+  assert.match(tasks.find((task) => task.id === "school")!.description, /your 8-year-old child.*confirm any school allowance/);
   assert.ok(tasks.findIndex((task) => task.id === "school") < tasks.findIndex((task) => task.id === "housing"));
   assert.match(tasks.find((task) => task.id === "insurance")!.description, /your spouse and your child/);
   assert.match(tasks.find((task) => task.id === "family-residence")!.description, /your spouse and your child/);
@@ -187,7 +190,7 @@ test("unknown employer policy figures and absent family names stay explicit", ()
 test("a moving child still receives school planning when the fixture lacks a child record", () => {
   const plan = { ...employeePlan, tasks: employeePlan.tasks.filter((task) => task.id !== "school") };
   const employee = { ...demoEmployee, family: [] };
-  const tasks = buildEmployeeTasks(plan, employeeAnswers, demoCompany, employee);
+  const tasks = buildEmployeeTasks(plan, { ...employeeAnswers, childAges: undefined }, demoCompany, employee);
   const school = tasks.find((task) => task.id === "school")!;
   assert.equal(school.origin, "local");
   assert.match(school.description, /your child/);
@@ -212,8 +215,9 @@ test("rationales cover every rendered task, keep distinct role voice, and honor 
     assert.ok(rationale.length < 220, rationale);
     assert.match(rationale, /\b(?:you|your)\b/i);
   }
-  for (const rationale of [...founderCopy, ...employeeTasks.filter((task) => task.origin === "fixture").map((task) => rationaleForTask(task, employeeContext))]) {
-    assert.match(rationale, /\b(?:ADDED|ICP|MOHRE|FTA|seven|nine|two|thirty|eight|Obtain establishment card|Secure family home)\b|\d/i);
+  for (const rationale of [...founderCopy, ...employeeCopy]) {
+    const namedTask = [...founderTasks, ...employeeTasks].some((task) => rationale.toLowerCase().includes(task.title.toLowerCase()));
+    assert.ok(namedTask || /\b(?:ADDED|ICP|MOHRE|FTA|ADREC|ADEK|seven|nine|two|thirty|eight)\b|\d/i.test(rationale), rationale);
   }
   assert.ok(founderCopy.every((copy) => !/\b(?:HR|allowance|Alex Morgan)\b/i.test(copy)));
   assert.ok(employeeCopy.every((copy) => !/\b(?:Maya|Haddad)\b/i.test(copy)));

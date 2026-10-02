@@ -23,10 +23,14 @@ import {
   questionTotal,
   questions,
   sequenceFor,
+  validOnboardingAnswers,
 } from "@/lib/ui/onboarding";
 import type { OnboardingAnswers, QuestionKey } from "@/lib/ui/onboarding";
 import { founderDemo } from "@/lib/ui/personas";
 import type { EmployeeAnswers, FounderAnswers } from "@/lib/ui/personas";
+import { childAges, emptyDetails, restoreCaseDetails, validCaseDetails } from "@/lib/ui/case-details";
+import type { CaseDetails } from "@/lib/ui/case-details";
+import { readLocal, removeLocal, writeLocal } from "@/lib/ui/storage";
 import type { Company, Employee, RelocationPlan } from "@/types/relocation";
 import styles from "./OnboardingExperience.module.css";
 
@@ -51,33 +55,17 @@ const businessTypes: Record<string, string> = {
   tech_startup: "Tech startup",
 };
 
-type CaseDetails = {
-  name: string;
-  businessName: string;
-  employerName: string;
-  workStartDate: string;
-  workLocation: string;
-  housingBudgetAED: string;
-  bedrooms: string;
-  commuteMinutes: string;
-  childAge: string;
-};
-
-const emptyDetails: CaseDetails = {
-  name: "", businessName: "", employerName: "", workStartDate: "", workLocation: "",
-  housingBudgetAED: "", bedrooms: "", commuteMinutes: "", childAge: "",
-};
 const caseStorageKey = "wusool.case.v1";
 const progressStorageKey = "wusool.progress.v1";
 
 function founderPlanAnswers(answers: OnboardingAnswers, details: CaseDetails, sample: boolean): FounderAnswers {
   const market = answers.pays === "export_only" ? "export"
-    : answers.pays === "international_remote" ? "international" : "uae-domestic";
+    : answers.pays === "international_remote" ? "international" : answers.pays === "mixed" ? "mixed" : "uae-domestic";
   const premises = answers.where === "remote" ? "none"
-    : answers.where === "customer_facing" ? "customer-facing" : "production-only";
+    : answers.where === "customer_facing" ? "customer-facing" : answers.where === "office_only" ? "office" : "warehouse";
   const established = answers.established === "yes";
   const moving = answers.moving;
-  const businessType = sample ? founderDemo.businessType : businessTypes[String(answers.build)] ?? "Existing business";
+  const businessType = sample ? founderDemo.businessType : businessTypes[String(established ? details.businessType : answers.build)] ?? "Existing business";
 
   return {
     ...founderDemo,
@@ -86,14 +74,17 @@ function founderPlanAnswers(answers: OnboardingAnswers, details: CaseDetails, sa
     businessName: sample ? founderDemo.businessName : details.businessName.trim(),
     businessType,
     customerMarket: market,
-    headcountYearOne: established ? 0 : typeof answers.payroll === "number" ? answers.payroll : 1,
+    headcountYearOne: established ? Number(details.plannedHires) : typeof answers.payroll === "number" ? answers.payroll : 1,
     premisesNeed: premises,
     relocatingSelf: true,
     movingWithSpouse: moving === "with_partner" || moving === "with_family",
     movingWithChild: moving === "with_family",
-    spouseName: sample ? undefined : "your partner",
-    childName: sample ? undefined : "your child",
-    childAge: sample ? undefined : Number(details.childAge),
+    spouseName: sample ? founderDemo.spouseName : "your partner",
+    childName: sample ? founderDemo.childName : (childAges(details.childAge)?.length ?? 0) > 1 ? "your children" : "your child",
+    childAge: sample ? founderDemo.childAge : childAges(details.childAge)?.[0],
+    childAges: sample ? founderDemo.childAges : childAges(details.childAge),
+    partnerSponsorship: sample ? "spouse" : details.partnerSponsorship as "spouse" | "independent" | "unknown",
+    establishmentCardReady: sample ? false : details.establishmentCardReady === "unknown" ? undefined : details.establishmentCardReady === "yes",
     arrivalTarget: String(answers.when ?? ""),
     preferredArea: areaNames[String(answers.area)] ?? "",
   };
@@ -106,21 +97,24 @@ function employeePlanAnswers(answers: OnboardingAnswers, company: Company, emplo
     movingWithSpouse: answers.moving === "with_partner" || answers.moving === "with_family",
     movingWithChild: answers.moving === "with_family",
     preferredArea: areaNames[String(answers.area)] ?? "",
-    maxCommuteMinutes: sample ? employee.preferences.maxCommuteMinutes : Number(details.commuteMinutes) || 30,
+    maxCommuteMinutes: sample ? employee.preferences.maxCommuteMinutes : Number(details.commuteMinutes) || 0,
     housingBudgetAED: sample ? company.policy.housingAllowanceAED : Number(details.housingBudgetAED) || undefined,
     arrivalTarget: String(answers.when ?? ""),
     visaStage: String(answers.visaStage ?? "not_started"),
     housingArrangement: String(answers.allowance ?? "yes"),
+    partnerSponsorship: sample ? "spouse" : details.partnerSponsorship as "spouse" | "independent" | "unknown",
+    childAges: sample ? undefined : childAges(details.childAge),
   };
 }
 
 function customEmployeeData(company: Company, employee: Employee, answers: OnboardingAnswers, details: CaseDetails) {
   const family: Employee["family"] = [];
   if (answers.moving === "with_partner" || answers.moving === "with_family") {
-    family.push({ name: "your partner", relationship: "spouse", age: 0 });
+    if (details.partnerSponsorship === "spouse") family.push({ name: "your spouse", relationship: "spouse", age: 0 });
   }
   if (answers.moving === "with_family") {
-    family.push({ name: "your child", relationship: "child", age: Number(details.childAge) });
+    const ages = childAges(details.childAge) ?? [];
+    ages.forEach((age, index) => family.push({ name: ages.length === 1 ? "your child" : `your child ${index + 1}`, relationship: "child", age }));
   }
   const budget = Number(details.housingBudgetAED) || 0;
   return {
@@ -147,8 +141,8 @@ function customEmployeeData(company: Company, employee: Employee, answers: Onboa
       startDate: details.workStartDate,
       family,
       preferences: {
-        bedrooms: Number(details.bedrooms) || 1,
-        maxCommuteMinutes: Number(details.commuteMinutes) || 30,
+        bedrooms: Number(details.bedrooms) || 0,
+        maxCommuteMinutes: Number(details.commuteMinutes) || 0,
         preferredAreas: areaNames[String(answers.area)] ? [areaNames[String(answers.area)]] : [],
       },
     },
@@ -161,6 +155,7 @@ export function OnboardingExperience({ company, employee, plan, todayISO }: Prop
   const [sample, setSample] = useState(false);
   const [remember, setRemember] = useState(false);
   const [storageReady, setStorageReady] = useState(false);
+  const [storageError, setStorageError] = useState(false);
   const [currentKey, setCurrentKey] = useState<QuestionKey>("role");
   const [screen, setScreen] = useState<"onboarding" | "details" | "plan">("onboarding");
   const [selection, setSelection] = useState<{ key: QuestionKey; value: string | number } | null>(null);
@@ -178,15 +173,15 @@ export function OnboardingExperience({ company, employee, plan, todayISO }: Prop
   /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     try {
-      const saved = window.localStorage.getItem(caseStorageKey);
+      const saved = readLocal(caseStorageKey);
       if (saved) {
         const parsed: unknown = JSON.parse(saved);
         if (parsed && typeof parsed === "object" && "answers" in parsed && "details" in parsed) {
           const record = parsed as { answers: OnboardingAnswers; details: CaseDetails };
-          const validDetails = record.details && Object.keys(emptyDetails).every((key) => typeof record.details[key as keyof CaseDetails] === "string");
-          if ((record.answers?.role === "founder" || record.answers?.role === "employee") && validDetails && !firstUnanswered(record.answers)) {
+          const restored = restoreCaseDetails(record.details);
+          if (validOnboardingAnswers(record.answers) && validCaseDetails(restored, String(record.answers.role), String(record.answers.moving))) {
             setAnswers(record.answers);
-            setDetails(record.details);
+            setDetails(restored);
             setRemember(true);
             setScreen("plan");
           }
@@ -201,7 +196,9 @@ export function OnboardingExperience({ company, employee, plan, todayISO }: Prop
 
   useEffect(() => {
     if (!storageReady || !remember || sample || screen !== "plan") return;
-    window.localStorage.setItem(caseStorageKey, JSON.stringify({ answers, details }));
+    // Persistence failure is a user-visible result of the browser storage side effect.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (!writeLocal(caseStorageKey, JSON.stringify({ answers, details }))) setStorageError(true);
   }, [answers, details, remember, sample, screen, storageReady]);
 
   const cancelTransition = useCallback(() => {
@@ -271,18 +268,20 @@ export function OnboardingExperience({ company, employee, plan, todayISO }: Prop
     cancelTransition();
     setAnswers({ ...persona });
     setSample(true);
+    setRemember(false);
     setPlanVersion((version) => version + 1);
     setScreen("plan");
   }
 
   function restart() {
     cancelTransition();
-    window.localStorage.removeItem(caseStorageKey);
-    window.localStorage.removeItem(progressStorageKey);
+    removeLocal(caseStorageKey);
+    removeLocal(progressStorageKey);
     setAnswers({});
     setDetails(emptyDetails);
     setSample(false);
     setRemember(false);
+    setStorageError(false);
     setCurrentKey("role");
     setPayrollDraft(3);
     setScreen("onboarding");
@@ -290,9 +289,10 @@ export function OnboardingExperience({ company, employee, plan, todayISO }: Prop
 
   function finishDetails(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (!validCaseDetails(details, String(answers.role), String(answers.moving))) return;
     if (!remember) {
-      window.localStorage.removeItem(caseStorageKey);
-      window.localStorage.removeItem(progressStorageKey);
+      removeLocal(caseStorageKey);
+      removeLocal(progressStorageKey);
     }
     setSample(false);
     setPlanVersion((version) => version + 1);
@@ -323,7 +323,7 @@ export function OnboardingExperience({ company, employee, plan, todayISO }: Prop
 
   return (
     <div className="flex min-h-screen flex-col bg-paper text-ink">
-      <header className="flex flex-wrap items-center gap-x-5 gap-y-3 border-b border-ink px-[clamp(20px,4vw,48px)] py-3.5">
+      <header className="flex flex-wrap items-center gap-x-5 gap-y-1 border-b border-ink px-[clamp(20px,4vw,48px)] py-3">
         <div className="flex items-center gap-3">
           <BrandMark />
           <div className="flex flex-col">
@@ -331,7 +331,7 @@ export function OnboardingExperience({ company, employee, plan, todayISO }: Prop
             <span lang="ar" dir="rtl" className="mt-0.5 w-fit font-arabic text-[12px] leading-none text-ink-muted">وصول</span>
           </div>
         </div>
-        <nav aria-label="Example cases and new case" className="ml-auto flex flex-wrap items-center gap-x-5 gap-y-2 font-mono text-[11px] uppercase">
+        <nav aria-label="Example cases and new case" className="ml-auto flex flex-wrap items-center gap-x-4 gap-y-0 font-mono text-[10px] uppercase sm:text-[11px]">
           <button type="button" onClick={() => loadPersona(founderPersona)} className="min-h-10 border-b border-transparent hover:border-accent">Example founder</button>
           <button type="button" onClick={() => loadPersona(employeePersona)} className="min-h-10 border-b border-transparent hover:border-accent">Example employee</button>
           <button type="button" onClick={restart} className="min-h-10 border-b border-transparent hover:border-accent">New case</button>
@@ -386,15 +386,34 @@ export function OnboardingExperience({ company, employee, plan, todayISO }: Prop
         <main className="mx-auto w-full max-w-[900px] flex-1 px-[clamp(20px,4vw,48px)] py-12">
           <FieldLabel>Case details</FieldLabel>
           <h1 className="type-question mt-4">Make this plan yours.</h1>
-          <p className="mt-4 max-w-2xl text-sm leading-relaxed text-ink-muted">These details are used on this device to build your case. Enter only what you know; missing policy amounts stay unverified.</p>
+          <p className="mt-4 max-w-2xl text-sm leading-relaxed text-ink-muted">Enter what you know. Unknown budgets and preferences stay open; nothing is submitted to an authority or provider.</p>
           <form onSubmit={finishDetails} className="mt-10 grid gap-6 border-t border-rule pt-8 sm:grid-cols-2">
             <label className="flex flex-col gap-2 text-sm font-medium">Your name
               <input required maxLength={80} autoComplete="name" value={details.name} onChange={(event) => updateDetail("name", event.target.value)} className="min-h-11 border border-rule bg-paper-raised px-3 text-ink" />
             </label>
             {answers.role === "founder" ? (
-              <label className="flex flex-col gap-2 text-sm font-medium">Business name
+              <><label className="flex flex-col gap-2 text-sm font-medium">Business name
                 <input required maxLength={100} value={details.businessName} onChange={(event) => updateDetail("businessName", event.target.value)} className="min-h-11 border border-rule bg-paper-raised px-3 text-ink" />
               </label>
+              {answers.established === "yes" && <>
+                <label className="flex flex-col gap-2 text-sm font-medium">Main business activity
+                  <select value={details.businessType} onChange={(event) => updateDetail("businessType", event.target.value)} className="min-h-11 border border-rule bg-paper-raised px-3">
+                    <option value="other">Other / not specified</option>{Object.entries(businessTypes).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+                  </select>
+                </label>
+                <label className="flex flex-col gap-2 text-sm font-medium">Does the company also hold an active establishment card?
+                  <select value={details.establishmentCardReady} onChange={(event) => updateDetail("establishmentCardReady", event.target.value)} className="min-h-11 border border-rule bg-paper-raised px-3">
+                    <option value="unknown">Not confirmed</option><option value="no">No</option><option value="yes">Yes, active card confirmed</option>
+                  </select>
+                </label>
+                <label className="flex flex-col gap-2 text-sm font-medium">New hires you will sponsor
+                  <input type="number" required min="0" max="50" value={details.plannedHires} onChange={(event) => updateDetail("plannedHires", event.target.value)} className="min-h-11 border border-rule bg-paper-raised px-3" />
+                </label>
+              </>}
+              <label className="flex flex-col gap-2 text-sm font-medium">Business site or district
+                <input maxLength={100} value={details.workLocation} onChange={(event) => updateDetail("workLocation", event.target.value)} placeholder="Leave empty if not chosen" className="min-h-11 border border-rule bg-paper-raised px-3" />
+              </label>
+              </>
             ) : (
               <>
                 <label className="flex flex-col gap-2 text-sm font-medium">Employer name
@@ -406,26 +425,32 @@ export function OnboardingExperience({ company, employee, plan, todayISO }: Prop
                 <label className="flex flex-col gap-2 text-sm font-medium">Work location
                   <input maxLength={100} value={details.workLocation} onChange={(event) => updateDetail("workLocation", event.target.value)} placeholder="Office or district, if known" className="min-h-11 border border-rule bg-paper-raised px-3 text-ink" />
                 </label>
-                {answers.allowance === "yes" && (
-                  <label className="flex flex-col gap-2 text-sm font-medium">Annual housing allowance (AED)
+                {answers.allowance !== "provided" && (
+                  <label className="flex flex-col gap-2 text-sm font-medium">{answers.allowance === "yes" ? "Annual housing allowance (AED)" : "Annual home rent budget (AED)"}
                     <input type="number" min="1" max="10000000" value={details.housingBudgetAED} onChange={(event) => updateDetail("housingBudgetAED", event.target.value)} placeholder="Leave empty if unknown" className="min-h-11 border border-rule bg-paper-raised px-3 text-ink" />
                   </label>
                 )}
-                {answers.allowance !== "provided" && (
-                  <>
-                    <label className="flex flex-col gap-2 text-sm font-medium">Bedrooms needed
-                      <input type="number" min="1" max="10" value={details.bedrooms} onChange={(event) => updateDetail("bedrooms", event.target.value)} placeholder="If known" className="min-h-11 border border-rule bg-paper-raised px-3 text-ink" />
-                    </label>
-                    <label className="flex flex-col gap-2 text-sm font-medium">Maximum commute (minutes)
-                      <input type="number" min="5" max="180" value={details.commuteMinutes} onChange={(event) => updateDetail("commuteMinutes", event.target.value)} placeholder="If known" className="min-h-11 border border-rule bg-paper-raised px-3 text-ink" />
-                    </label>
-                  </>
-                )}
               </>
             )}
+            {answers.role === "founder" && <label className="flex flex-col gap-2 text-sm font-medium">Annual home rent budget (AED)
+              <input type="number" min="1" max="10000000" value={details.housingBudgetAED} onChange={(event) => updateDetail("housingBudgetAED", event.target.value)} placeholder="Leave empty if unknown" className="min-h-11 border border-rule bg-paper-raised px-3" />
+            </label>}
+            {(answers.role === "founder" || answers.allowance !== "provided") && <>
+              <label className="flex flex-col gap-2 text-sm font-medium">Bedrooms needed
+                <input type="number" min="1" max="10" value={details.bedrooms} onChange={(event) => updateDetail("bedrooms", event.target.value)} placeholder="Leave empty if undecided" className="min-h-11 border border-rule bg-paper-raised px-3" />
+              </label>
+              <label className="flex flex-col gap-2 text-sm font-medium">Maximum commute (minutes)
+                <input type="number" min="5" max="180" value={details.commuteMinutes} onChange={(event) => updateDetail("commuteMinutes", event.target.value)} placeholder="Leave empty if undecided" className="min-h-11 border border-rule bg-paper-raised px-3" />
+              </label>
+            </>}
+            {(answers.moving === "with_partner" || answers.moving === "with_family") && <label className="flex flex-col gap-2 text-sm font-medium">Partner&apos;s entry route
+              <select value={details.partnerSponsorship} onChange={(event) => updateDetail("partnerSponsorship", event.target.value)} className="min-h-11 border border-rule bg-paper-raised px-3">
+                <option value="unknown">Not confirmed — resolve with ICP</option><option value="spouse">Spouse — family sponsorship route</option><option value="independent">Separate employment or other independent route</option>
+              </select>
+            </label>}
             {answers.moving === "with_family" && (
-                <label className="flex flex-col gap-2 text-sm font-medium">Child&apos;s age
-                <input required type="number" min="0" max="18" value={details.childAge} onChange={(event) => updateDetail("childAge", event.target.value)} className="min-h-11 border border-rule bg-paper-raised px-3 text-ink" />
+              <label className="flex flex-col gap-2 text-sm font-medium">Children&apos;s ages (comma separated)
+                <input required inputMode="text" pattern="[0-9 ,]+" value={details.childAge} onChange={(event) => { updateDetail("childAge", event.target.value); event.target.setCustomValidity(childAges(event.target.value)?.length ? "" : "Enter ages from 0 to 18, separated by commas."); }} placeholder="For example: 7, 12" className="min-h-11 border border-rule bg-paper-raised px-3 text-ink" />
               </label>
             )}
             <label className="flex items-center gap-3 text-sm sm:col-span-2">
@@ -446,10 +471,11 @@ export function OnboardingExperience({ company, employee, plan, todayISO }: Prop
               <button type="button" onClick={() => setScreen("details")} className="min-h-10 border-b border-transparent hover:border-accent">Edit case details</button>
             </div>
           )}
+          {storageError && <p role="status" className="mt-4 text-sm text-ink-muted">This browser could not save your case. Keep this tab open or export your case before closing it.</p>}
           {answers.role === "founder" ? (
-            <PlanView key={planVersion} viewerRole="founder" answers={founderPlanAnswers(answers, details, sample)} sampleCase={sample} rememberCase={remember} />
+            <PlanView key={planVersion} viewerRole="founder" answers={founderPlanAnswers(answers, details, sample)} sampleCase={sample} rememberCase={remember} todayISO={todayISO} housingBrief={{ budget: Number(details.housingBudgetAED) || undefined, bedrooms: Number(details.bedrooms) || undefined, commuteMinutes: Number(details.commuteMinutes) || undefined, workLocation: details.workLocation.trim() || undefined }} />
           ) : (
-            <PlanView key={planVersion} viewerRole="employee" answers={employeePlanAnswers(answers, company, employee, details, sample)} company={sample ? company : customEmployeeData(company, employee, answers, details).company} employee={sample ? employee : customEmployeeData(company, employee, answers, details).employee} plan={plan} sampleCase={sample} rememberCase={remember} />
+            <PlanView key={planVersion} viewerRole="employee" answers={employeePlanAnswers(answers, company, employee, details, sample)} company={sample ? company : customEmployeeData(company, employee, answers, details).company} employee={sample ? employee : customEmployeeData(company, employee, answers, details).employee} plan={plan} sampleCase={sample} rememberCase={remember} todayISO={todayISO} />
           )}
         </main>
       )}
