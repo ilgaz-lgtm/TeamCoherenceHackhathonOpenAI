@@ -173,3 +173,16 @@ a {
     stroke-dashoffset: 0 !important;
   }
 }
+
+/* Wusool top tabs are single-view navigation, not an expanding document. */
+#plan-view[data-active-section="timeline"] > :not(nav):not(#timeline),
+#plan-view[data-active-section="housing"] > :not(nav):not(#housing),
+#plan-view[data-active-section="schools"] > :not(nav):not([aria-label="Relocation services"]),
+#plan-view[data-active-section="health"] > :not(nav):not([aria-label="Relocation services"]),
+#plan-view[data-active-section="banking"] > :not(nav):not([aria-label="Relocation services"]),
+#plan-view[data-active-section="moving"] > :not(nav):not([aria-label="Relocation services"]),
+#plan-view[data-active-section="settling"] > :not(nav):not([aria-label="Relocation services"]),
+#plan-view[data-active-section="package"] > :not(nav):not([aria-label="Relocation services"]),
+#plan-view[data-active-section="plan"] > #timeline,
+#plan-view[data-active-section="plan"] > #housing,
+#plan-view[data-active-section="plan"] > [aria-label="Relocation services"] { display: none; }
