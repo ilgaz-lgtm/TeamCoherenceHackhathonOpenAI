@@ -1,4 +1,4 @@
-# Team Coherence
+# Wusool
 
 One full-stack Next.js App Router hackathon repository for employer-led employee relocation to Abu Dhabi. Keep this foundation simple: no database, authentication or real property API yet.
 

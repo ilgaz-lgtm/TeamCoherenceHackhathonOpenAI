@@ -1,6 +1,18 @@
-# Team Coherence
+# Wusool
 
 An employer-specific Abu Dhabi relocation platform foundation for a one-day OpenAI hackathon. Company policy and employee/family profiles become a structured journey; a replaceable housing adapter searches fictional property listings.
+
+## Persona handover for frontend
+
+Existing Alex exports and the three original demo endpoints remain available. New browser-safe exports from `lib/demo/data`: `demoShortTermEmployee`, `demoShortTermPolicy`, `demoShortTermPlanRequest`, `demoShortTermRelocation`, `demoShortTermHousingRequest`, and `demoPersonas`. `GET /api/demo/personas` returns the two-persona array, with each item containing `id`, `label`, `companyPolicy`, `employee`, `relocation`, and `housingRequest`.
+
+Alex has a family, a three-bedroom preference and six tasks. Maya Patel is a junior analyst with no dependants on a 60-day assignment, a one-bedroom preference and three tasks. Maya's assignment-specific allowance is AED 90,000 annual-equivalent; Alex's policy remains unchanged. Short-term housing pricing is a fictional annual equivalent, not a verified booking rate.
+
+`RelocationTask.rationale?: string` explains why a task applies to this employee, at most 220 characters. Existing tasks without rationale remain valid, so the UI can retain its fallback map. Both generated demo plans populate rationale. Live output uses a separate required-rationale schema to comply with OpenAI strict Structured Outputs.
+
+`Employee.assignment` is optional: `{ durationDays, accommodation: "self_arranged" | "employer_managed" }`. Only assignments of at most 90 days, with no dependants and explicit employer-managed accommodation, use the compact demo journey. Housing, utilities and arrival logistics are combined; visa and insurance checks remain. Single status or a junior role alone does not trigger task removal.
+
+Use each persona's `companyPolicy` and `employee` together when calling `/api/ai/plan`, and its `housingRequest` for property search. No UI files were changed for this backend handover; update product branding to Wusool on the frontend branch.
 
 ## Run locally
 
@@ -46,6 +58,7 @@ Successful requests return JSON directly, without a `data` wrapper.
 | GET | `/api/demo/company` | none | `Company` (includes `policy`) |
 | GET | `/api/demo/employee` | none | `Employee` (family includes spouse/children) |
 | GET | `/api/demo/relocation` | none | `RelocationCase` (includes `plan`) |
+| GET | `/api/demo/personas` | none | Array of both persona fixture bundles |
 | POST | `/api/ai/plan` | `{ companyPolicy, employee }` (`PlanRequest`) | `{ readiness, summary, tasks }` (`RelocationPlan`) |
 | POST | `/api/ai/next-action` | `{ plan }` (`NextActionRequest`) | `{ taskId: string \| null, reason }` |
 | POST | `/api/providers/housing/search` | `PropertySearchRequest` | `{ provider, results }` |
@@ -78,4 +91,4 @@ npm run build
 npm start
 ```
 
-With the server running in demo mode, run `node tests/smoke.mjs` in another terminal (optional `BASE_URL` overrides localhost:3000). This exercises all six endpoints, deterministic plans, invalid JSON/schema requests, dependency validation and housing filters. Live AI calls require your key and are not exercised by the demo checks.
+With the server running in demo mode, run `node tests/smoke.mjs` in another terminal (optional `BASE_URL` overrides localhost:3000). This exercises all seven endpoints, both personas, deterministic plans, invalid JSON/schema requests, dependency validation and housing filters. Live AI calls require your key and are not exercised by the demo checks.

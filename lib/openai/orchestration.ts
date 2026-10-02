@@ -2,7 +2,7 @@ import "server-only";
 import { zodTextFormat } from "openai/helpers/zod";
 import { createOpenAIClient, isDemoMode } from "./client";
 import { planInstructions, nextActionInstructions } from "./prompts";
-import { relocationPlanSchema, nextActionResponseSchema, validatePlan } from "@/lib/schemas/relocation";
+import { generatedRelocationPlanSchema, nextActionResponseSchema, validatePlan } from "@/lib/schemas/relocation";
 import { buildDemoPlan, getDemoNextAction } from "@/lib/demo/plan";
 import type { PlanRequest, RelocationPlan } from "@/types/relocation";
 
@@ -10,7 +10,7 @@ export async function generatePlan(input: PlanRequest) {
   if (isDemoMode()) return buildDemoPlan(input);
   const response = await createOpenAIClient().responses.parse({
     model: process.env.OPENAI_MODEL!, instructions: planInstructions,
-    input: JSON.stringify(input), text: { format: zodTextFormat(relocationPlanSchema, "relocation_plan") }, store: false,
+    input: JSON.stringify(input), text: { format: zodTextFormat(generatedRelocationPlanSchema, "relocation_plan") }, store: false,
   });
   if (!response.output_parsed) throw new Error("No structured plan returned");
   return validatePlan(response.output_parsed);

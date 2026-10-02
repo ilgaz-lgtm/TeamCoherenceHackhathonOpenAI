@@ -13,6 +13,14 @@ async function post(path, body, expectedStatus = 200) {
 const company = await get("/api/demo/company");
 const employee = await get("/api/demo/employee");
 const relocation = await get("/api/demo/relocation");
+const personas = await get("/api/demo/personas");
+assert.equal(personas.length, 2);
+const maya = personas.find((persona) => persona.id === "maya");
+const mayaPlan = await post("/api/ai/plan", { companyPolicy: maya.companyPolicy, employee: maya.employee });
+assert.deepEqual(mayaPlan, maya.relocation.plan);
+assert.equal(mayaPlan.tasks.length, 3);
+assert.ok(mayaPlan.tasks.every((task) => task.rationale && task.rationale.length <= 220));
+assert.equal((await post("/api/providers/housing/search", maya.housingRequest)).results.length, 1);
 const request = { companyPolicy: company.policy, employee };
 const plan = await post("/api/ai/plan", request);
 assert.deepEqual(plan, relocation.plan);
@@ -36,4 +44,4 @@ for (const path of ["/api/ai/plan", "/api/ai/next-action", "/api/providers/housi
   assert.equal(response.status, 400);
   assert.equal((await response.json()).error.code, "INVALID_JSON");
 }
-console.log("PASS: all six endpoints, demo determinism, validation, dependency handling and housing filters");
+console.log("PASS: all seven endpoints, both personas, demo determinism, validation, dependency handling and housing filters");

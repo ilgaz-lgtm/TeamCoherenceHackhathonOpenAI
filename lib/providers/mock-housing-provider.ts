@@ -3,6 +3,7 @@ import type { HousingProvider } from "./housing-provider";
 import type { PropertySearchRequest, PropertySearchResult } from "@/types/relocation";
 
 const listings: PropertySearchResult[] = [
+  { id: "reem-stay-01", providerId: "mock-housing", title: "Al Reem serviced one-bedroom stay", area: "Al Reem Island", bedrooms: 1, annualRentAED: 84000, estimatedCommuteMinutes: 15, description: "Fictional demo serviced stay with utilities; annual-equivalent price, subject to HR confirmation for a short assignment." },
   { id: "reem-01", providerId: "mock-housing", title: "Family apartment on Al Reem", area: "Al Reem Island", bedrooms: 3, annualRentAED: 155000, estimatedCommuteMinutes: 15, description: "Fictional demo listing with community facilities." },
   { id: "saadiyat-01", providerId: "mock-housing", title: "Saadiyat family residence", area: "Saadiyat Island", bedrooms: 3, annualRentAED: 175000, estimatedCommuteMinutes: 25, description: "Fictional demo listing near cultural attractions." },
   { id: "yas-01", providerId: "mock-housing", title: "Yas Island townhouse", area: "Yas Island", bedrooms: 3, annualRentAED: 170000, estimatedCommuteMinutes: 35, description: "Fictional demo townhouse." },

@@ -17,16 +17,26 @@ export const familyMemberSchema = z.object({ name: text, relationship: z.enum(["
 export const employeeSchema = z.object({
   id: text, companyId: text, name: text, nationality: text, movingFrom: text,
   role: text, startDate: z.iso.date(), family: z.array(familyMemberSchema).max(20),
+  assignment: z.object({
+    durationDays: z.number().int().positive().max(3650),
+    accommodation: z.enum(["self_arranged", "employer_managed"]),
+  }).optional(),
   preferences: z.object({ bedrooms: z.number().int().min(0).max(10), maxCommuteMinutes: z.number().int().positive().max(180), preferredAreas: z.array(text).max(20) }),
 });
 export const relocationTaskSchema = z.object({
   id: text, title: text, description: text,
+  rationale: z.string().max(220).optional(),
   category: z.enum(["visa", "housing", "school", "insurance", "travel", "settling"]),
   status: z.enum(["pending", "in_progress", "completed"]),
   priority: z.enum(["high", "medium", "low"]),
   dependsOn: z.array(text), dueDate: z.iso.date().nullable(),
 });
 export const relocationPlanSchema = z.object({ readiness: z.number().min(0).max(100), summary: text, tasks: z.array(relocationTaskSchema).max(40) });
+// OpenAI strict outputs require all properties to be required. Public contracts
+// stay optional for existing fixtures; live generation always supplies rationale.
+export const generatedRelocationPlanSchema = relocationPlanSchema.extend({
+  tasks: z.array(relocationTaskSchema.extend({ rationale: z.string().max(220) })).max(40),
+});
 export const relocationCaseSchema = z.object({ id: text, companyId: text, employeeId: text, destination: z.literal("Abu Dhabi"), plan: relocationPlanSchema });
 export const serviceProviderSchema = z.object({ id: text, name: text, category: z.enum(["housing", "banking", "insurance", "school", "moving", "telecom"]), mode: z.enum(["mock", "live"]) });
 export const propertySearchRequestSchema = z.object({
