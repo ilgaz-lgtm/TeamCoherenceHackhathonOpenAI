@@ -60,7 +60,11 @@ export function buildEmployeeTasks(plan: RelocationPlan, answers: EmployeeAnswer
   const descriptions: Record<string, string> = {
     visa: `Prepare your identity records${movingNames.length > 1 ? " and records for the family moving with you" : ""} for the employer-sponsored ICP application; track the decision before booking travel.`,
     travel: `Book flights within ${formatAed(company.policy.flightAllowanceAED)} and reserve ${company.policy.temporaryAccommodationDays} days of temporary accommodation after visa clearance.`,
-    housing: `Shortlist ${employee.preferences.bedrooms}-bedroom homes within ${formatAed(company.policy.housingAllowanceAED)} annually and ${answers.maxCommuteMinutes} minutes of ${company.policy.officeLocation}.${answers.preferredArea.trim() ? ` Start with ${answers.preferredArea.trim()}.` : ""}`,
+    housing: answers.housingArrangement === "provided"
+      ? "Confirm the provided address and move-in date with your employer; request the registered tenancy evidence for household services."
+      : answers.housingArrangement === "no"
+        ? `Set a rent budget from salary, then shortlist ${employee.preferences.bedrooms}-bedroom homes within ${answers.maxCommuteMinutes} minutes of ${company.policy.officeLocation}.${answers.preferredArea.trim() ? ` Start with ${answers.preferredArea.trim()}.` : ""}`
+        : `Shortlist ${employee.preferences.bedrooms}-bedroom homes within ${formatAed(company.policy.housingAllowanceAED)} annually and ${answers.maxCommuteMinutes} minutes of ${company.policy.officeLocation}.${answers.preferredArea.trim() ? ` Start with ${answers.preferredArea.trim()}.` : ""}`,
     insurance: `Record the employer policy's effective health-cover dates for ${covered} before arrival.`,
     settling: "Use the signed residential tenancy to open utility and telecom accounts at your home address.",
     school: `Apply for a place for ${child?.name ?? "your child"}${child?.age ? `, ${child.age},` : ""} and compare tuition with the ${formatAed(company.policy.schoolAllowanceAED)} school allowance.`,
@@ -71,11 +75,13 @@ export function buildEmployeeTasks(plan: RelocationPlan, answers: EmployeeAnswer
     .filter((task) => task.category !== "school" || answers.movingWithChild)
     .map((task) => ({
       ...task,
-      title: task.id === "insurance" && !answers.movingWithSpouse && !answers.movingWithChild
-        ? "Confirm health coverage"
-        : task.title,
+      title: task.id === "housing" && answers.housingArrangement === "provided" ? "Confirm employer housing"
+        : task.id === "insurance" && !answers.movingWithSpouse && !answers.movingWithChild ? "Confirm health coverage"
+          : task.title,
       description: descriptions[task.id] ?? task.description,
       dueDate: answers.startDate,
+      status: task.id === "visa" && answers.visaStage === "filed" ? "in_progress"
+        : task.id === "visa" && answers.visaStage === "approved" ? "completed" : task.status,
       layer: "people" as const,
       origin: "fixture" as const,
     }));

@@ -256,5 +256,12 @@ export function buildFounderTasks(answers: FounderAnswers): ScopedTask[] {
     );
   }
 
-  return tasks;
+  if (!answers.isEstablishedInUAE) return tasks;
+
+  const peopleTasks = tasks.filter((task) => task.layer !== "company");
+  const peopleIds = new Set(peopleTasks.map((task) => task.id));
+  return peopleTasks.map((task) => ({
+    ...task,
+    dependsOn: task.dependsOn.filter((id) => peopleIds.has(id)),
+  }));
 }

@@ -5,7 +5,7 @@ export type CustomerMarket = "uae-domestic" | "export" | "international";
 export type PremisesNeed = "customer-facing" | "production-only" | "none";
 
 export type FounderAnswers = {
-  isEstablishedInUAE: false;
+  isEstablishedInUAE: boolean;
   name: string;
   businessName: string;
   businessType: string;
@@ -15,6 +15,8 @@ export type FounderAnswers = {
   relocatingSelf: boolean;
   movingWithSpouse: boolean;
   movingWithChild: boolean;
+  arrivalTarget?: string;
+  preferredArea?: string;
 };
 
 export type EmployeeAnswers = {
@@ -24,6 +26,9 @@ export type EmployeeAnswers = {
   movingWithChild: boolean;
   preferredArea: string;
   maxCommuteMinutes: number;
+  arrivalTarget?: string;
+  visaStage?: string;
+  housingArrangement?: string;
 };
 
 export const founderDemo: FounderAnswers = {
@@ -37,6 +42,8 @@ export const founderDemo: FounderAnswers = {
   relocatingSelf: true,
   movingWithSpouse: true,
   movingWithChild: true,
+  arrivalTarget: "2027-04-01",
+  preferredArea: "Saadiyat Island",
 };
 
 export const founderFamily = {

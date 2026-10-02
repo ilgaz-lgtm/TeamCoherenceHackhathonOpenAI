@@ -18,7 +18,7 @@ export function AnswerLedger({ entries, activeId, className = "" }: AnswerLedger
   return (
     <aside aria-label="Answer ledger" className={`${styles.ledger} ${className}`}>
       <div className={styles.ledgerHeader}>ANSWER LEDGER</div>
-      {entries.length === 0 && <p className={styles.ledgerEmpty}>Each answer is written here as you give it. Click any line to revise it.</p>}
+      {entries.length === 0 && <p className={styles.ledgerEmpty}>Answers appear here.</p>}
       <div className={styles.ledgerEntries}>
         {entries.map((entry) => (
           <button

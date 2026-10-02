@@ -57,6 +57,14 @@ test("optional founder answers narrow the same persona without creating a third 
   assert.equal(buildFounderTasks({ ...founderDemo, premisesNeed: "none" }).some((task) => task.category === "premises"), false);
 });
 
+test("an already-established founder sees only the people layer", () => {
+  const tasks = buildFounderTasks({ ...founderDemo, isEstablishedInUAE: true, headcountYearOne: 0 });
+  const ids = new Set(tasks.map((task) => task.id));
+  assert.ok(tasks.length > 0);
+  assert.ok(tasks.every((task) => task.layer === "self"));
+  assert.ok(tasks.every((task) => task.dependsOn.every((id) => ids.has(id))));
+});
+
 test("employee companion answers remove the school task and family-record action", () => {
   const solo = buildEmployeeTasks(
     employeePlan,
@@ -66,6 +74,26 @@ test("employee companion answers remove the school task and family-record action
   );
   assert.ok(!solo.some((task) => task.id === "school"));
   assert.doesNotMatch(solo.find((task) => task.id === "visa")!.description, /family/);
+});
+
+test("employee visa stage and housing arrangement carry into the task list", () => {
+  const provided = buildEmployeeTasks(
+    employeePlan,
+    { ...employeeAnswers, visaStage: "approved", housingArrangement: "provided" },
+    demoCompany,
+    demoEmployee,
+  );
+  assert.equal(provided.find((task) => task.id === "visa")?.status, "completed");
+  assert.equal(provided.find((task) => task.id === "housing")?.title, "Confirm employer housing");
+  assert.doesNotMatch(provided.find((task) => task.id === "housing")!.description, /Shortlist|AED/);
+
+  const salaryFunded = buildEmployeeTasks(
+    employeePlan,
+    { ...employeeAnswers, housingArrangement: "no" },
+    demoCompany,
+    demoEmployee,
+  );
+  assert.doesNotMatch(salaryFunded.find((task) => task.id === "housing")!.description, /allowance|AED/);
 });
 
 test("rationales cover every rendered task, keep distinct role voice, and honor authored text", () => {

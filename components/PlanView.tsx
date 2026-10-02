@@ -162,12 +162,25 @@ export function PlanView(props: PlanViewProps) {
             <p className="mt-2 text-sm text-ink-muted">
               {founder ? props.answers.businessName : `${props.employee.role} / ${props.answers.employerName}`}
             </p>
-            {founder && <Annotation className="mt-2 block">Company not yet established</Annotation>}
+            {founder && <Annotation className="mt-2 block">{props.answers.isEstablishedInUAE ? "Company established in the UAE" : "Company not yet established"}</Annotation>}
           </div>
           <Stamp>Sample case</Stamp>
         </div>
         <Rule className="my-8" />
-        {founder ? (
+        {founder && props.answers.isEstablishedInUAE ? (
+          <div className="grid gap-8 sm:grid-cols-2">
+            <div className="flex flex-col items-start gap-2">
+              <FieldLabel>Company status</FieldLabel>
+              <Figure value="Established" className="text-xl text-ink sm:text-2xl" />
+              <Annotation>UAE licence already held / Founder intake</Annotation>
+            </div>
+            <div className="flex flex-col items-start gap-2">
+              <FieldLabel>Arrival target</FieldLabel>
+              <Figure value={props.answers.arrivalTarget ?? "Not set"} className="text-xl text-ink sm:text-2xl" />
+              <Annotation>Target date / Not entry clearance</Annotation>
+            </div>
+          </div>
+        ) : founder ? (
           <div className="grid gap-8 sm:grid-cols-2">
             <div className="flex flex-col items-start gap-2">
               <FieldLabel>Year-one team</FieldLabel>
@@ -183,9 +196,13 @@ export function PlanView(props: PlanViewProps) {
         ) : (
           <div className="grid gap-8 sm:grid-cols-2">
             <div className="flex flex-col items-start gap-2">
-              <FieldLabel>Housing allowance / Year</FieldLabel>
-              <Figure value={props.company.policy.housingAllowanceAED} format="aed" className="text-2xl text-ink sm:text-3xl" />
-              <Annotation>Employer policy / Annual cap</Annotation>
+              <FieldLabel>{props.answers.housingArrangement === "provided" ? "Housing" : props.answers.housingArrangement === "no" ? "Housing budget" : "Housing allowance / Year"}</FieldLabel>
+              {props.answers.housingArrangement === "provided" || props.answers.housingArrangement === "no" ? (
+                <Figure value={props.answers.housingArrangement === "provided" ? "Provided" : "From salary"} className="text-xl text-ink sm:text-2xl" />
+              ) : (
+                <Figure value={props.company.policy.housingAllowanceAED} format="aed" className="text-2xl text-ink sm:text-3xl" />
+              )}
+              <Annotation>{props.answers.housingArrangement === "provided" ? "Employer package / No lease to sign" : props.answers.housingArrangement === "no" ? "No housing allowance / Salary-funded" : "Employer policy / Annual cap"}</Annotation>
             </div>
             <div className="flex flex-col items-start gap-2">
               <FieldLabel>Work start date</FieldLabel>
@@ -201,7 +218,7 @@ export function PlanView(props: PlanViewProps) {
       {founder ? (
         <>
           <PlanSection label="Layer A / Company" title="Establish the business" note={`${tasks.filter((task) => task.layer === "company").length} tasks / Company-owned`} tasks={tasks.filter((task) => task.layer === "company")} {...sectionProps} />
-          <PlanSection label="Layer B / Founder" title="Move your household" note={`${tasks.filter((task) => task.layer === "self").length} tasks / After company setup`} tasks={tasks.filter((task) => task.layer === "self")} {...sectionProps} />
+          <PlanSection label="Layer B / Founder" title="Move your household" note={`${tasks.filter((task) => task.layer === "self").length} tasks / ${props.answers.isEstablishedInUAE ? "Company established" : "After company setup"}`} tasks={tasks.filter((task) => task.layer === "self")} {...sectionProps} />
           <PlanSection label="Layer B / First hires" title="Bring in your first team" note={`${tasks.filter((task) => task.layer === "team").length} tasks / After your move`} tasks={tasks.filter((task) => task.layer === "team")} {...sectionProps} />
         </>
       ) : (

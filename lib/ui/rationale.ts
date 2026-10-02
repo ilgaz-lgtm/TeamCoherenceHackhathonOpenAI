@@ -75,7 +75,9 @@ export function founderRationaleByTaskId(answers: FounderAnswers): Record<string
       ? "Omar and seven-year-old Lina depend on the status under which you reside; their applications follow your own residence decision, not the café lease."
       : `${familyNames} depends on your ICP residence status; their application follows that decision, not the business lease.`,
     "family-school": "An offered seat for seven-year-old Lina fixes the school-run radius before you commit to a home lease.",
-    "family-home": child && coffee
+    "family-home": answers.isEstablishedInUAE
+      ? "Your existing UAE company address does not settle the residential commute; the home still needs its own lease decision."
+      : child && coffee
       ? "Seven-year-old Lina’s school location and your café commute compete for the same address; a lease chosen on commute alone closes off her school options."
       : child
         ? "Seven-year-old Lina’s school location and your business commute compete for the same address; a lease chosen on commute alone closes off her school options."
@@ -83,7 +85,9 @@ export function founderRationaleByTaskId(answers: FounderAnswers): Record<string
     "family-insurance": spouse && child
       ? "You, Omar and seven-year-old Lina need effective cover from arrival; a policy that starts with the café opening leaves a gap."
       : `You${spouse ? ` and ${founderFamily.spouse}` : ""}${child ? ` and ${founderFamily.child}` : ""} need cover from your ICP residence date; a policy that starts with the business opening leaves a gap.`,
-    "family-travel": coffee && (spouse || child)
+    "family-travel": answers.isEstablishedInUAE
+      ? "Your ICP residence route now sets travel dates; the company licence is already in place, but it is not entry clearance."
+      : coffee && (spouse || child)
       ? "ICP cannot open your residence file before 'Obtain establishment card' is done; the family’s arrival follows that gate, not your café opening."
       : "ICP cannot open your residence file before 'Obtain establishment card' is done; your arrival follows that gate, not your business opening.",
     "home-utilities": coffee
@@ -126,7 +130,11 @@ export function employeeRationaleByTaskId(
   return {
     visa: `${start} is a work start, not an entry clearance date; your sponsored visa outcome sets when ${travellers} can travel.`,
     travel: `${initialCapital(stay)} days of temporary accommodation start with arrival, so a visa delay consumes the allowance if you book from the ${start} work date.`,
-    housing: `The ${answers.maxCommuteMinutes}-minute ADGM commute narrows ${bedrooms}-bedroom homes within your ${formatAed(company.policy.housingAllowanceAED)} cap; a cheaper listing outside that radius still fails the brief.`,
+    housing: answers.housingArrangement === "provided"
+      ? "Tawtheeq records the provided home's address; your employer's housing promise alone does not give utility providers a registered tenancy."
+      : answers.housingArrangement === "no"
+        ? `The ${answers.maxCommuteMinutes}-minute ADGM commute still narrows ${bedrooms}-bedroom homes, but rent comes from salary rather than an employer housing cap.`
+        : `The ${answers.maxCommuteMinutes}-minute ADGM commute narrows ${bedrooms}-bedroom homes within your ${formatAed(company.policy.housingAllowanceAED)} cap; a cheaper listing outside that radius still fails the brief.`,
     insurance: `“${company.policy.healthInsuranceCoverage}” is the stated policy scope; your ${start} start date does not establish when cover begins for ${covered}.`,
     settling: `A residential tenancy, not the ${start} work start, gives utilities the address they use to open your household accounts.`,
     school: `An offered seat for ${countText(child?.age ?? 8)}-year-old ${child?.name ?? "Jamie"} fixes the school-run radius, so you shortlist housing around the school rather than reverse that order.`,
