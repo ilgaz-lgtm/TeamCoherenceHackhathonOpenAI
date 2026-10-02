@@ -153,6 +153,10 @@ export function PlanView(props: PlanViewProps) {
 
   return (
     <div id="plan-view" className="pt-10">
+      <nav aria-label="Plan sections" className="sticky top-0 z-10 mb-8 flex min-w-max gap-7 overflow-x-auto border-b border-rule bg-paper py-3 font-mono text-[11px] uppercase tracking-[0.12em]">
+        <a href="#plan-view" className="border-b-2 border-ink pb-2">01 Plan</a>
+        {!founder && <><a href="#timeline" className="border-b-2 border-transparent pb-2 hover:border-accent">02 Timeline</a><a href="#housing" className="border-b-2 border-transparent pb-2 hover:border-accent">03 Housing</a><span className="text-ink-faint">04 Schools · 05 Health cover · 06 Banking · 07 Moving &amp; logistics · 08 Settling in · 09 HR &amp; package</span></>}
+      </nav>
       <Sheet level="raised" titleBlock={`Plan file / ${founder ? "Founder" : "Employee"}`} aria-label="Case file">
         <div className="flex flex-wrap items-start justify-between gap-6">
           <div>
@@ -245,7 +249,7 @@ export function PlanView(props: PlanViewProps) {
         </>
       )}
 
-      {!founder && <DependencyTimeline tasks={props.plan.tasks} />}
+      {!founder && <><div id="timeline"><DependencyTimeline tasks={props.plan.tasks} /></div><section id="housing" className="mt-12 border-t border-rule pt-8"><span className="font-mono text-[11px] uppercase tracking-[0.18em] text-ink-muted">03 / Housing</span><h2 className="mt-2 type-view text-ink">Housing shortlist</h2><p className="mt-3 max-w-2xl text-sm text-ink-muted">Fictional demo listings filtered from your relocation brief. Confirm availability and tenancy registration before acting.</p><div className="mt-6 overflow-x-auto border-y border-rule"><table className="w-full min-w-[640px] text-left text-sm"><thead className="font-mono text-[11px] uppercase text-ink-muted"><tr className="border-b border-rule"><th className="py-3 pr-4">Area</th><th className="py-3 pr-4">Home</th><th className="py-3 pr-4">Beds</th><th className="py-3 pr-4">Annual rent</th><th className="py-3">Commute</th></tr></thead><tbody>{[{area:"Al Reem Island",home:"Family apartment",beds:3,rent:"AED 155,000",commute:"15 min"},{area:"Saadiyat Island",home:"Family residence",beds:3,rent:"AED 175,000",commute:"25 min"},{area:"Yas Island",home:"Townhouse",beds:3,rent:"AED 170,000",commute:"35 min"}].map((row) => <tr key={row.area} className="border-b border-rule last:border-0"><td className="py-4 pr-4">{row.area}</td><td className="py-4 pr-4">{row.home}</td><td className="py-4 pr-4 font-mono">{row.beds}</td><td className="py-4 pr-4 font-mono">{row.rent}</td><td className="py-4 font-mono">{row.commute}</td></tr>)}</tbody></table></div></section></>}
 
       <p className="mt-10">
         <Annotation>{founder
