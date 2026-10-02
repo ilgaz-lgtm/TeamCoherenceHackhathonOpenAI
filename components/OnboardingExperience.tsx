@@ -69,9 +69,9 @@ function founderPlanAnswers(answers: OnboardingAnswers, details: CaseDetails, sa
 
   return {
     ...founderDemo,
-    name: sample ? founderDemo.name : details.name.trim(),
+    name: sample ? founderDemo.name : "Your move",
     isEstablishedInUAE: established,
-    businessName: sample ? founderDemo.businessName : details.businessName.trim(),
+    businessName: sample ? founderDemo.businessName : "Your business",
     businessType,
     customerMarket: market,
     headcountYearOne: established ? Number(details.plannedHires) : typeof answers.payroll === "number" ? answers.payroll : 1,
@@ -92,8 +92,8 @@ function founderPlanAnswers(answers: OnboardingAnswers, details: CaseDetails, sa
 
 function employeePlanAnswers(answers: OnboardingAnswers, company: Company, employee: Employee, details: CaseDetails, sample: boolean): EmployeeAnswers {
   return {
-    employerName: sample ? company.name : details.employerName.trim(),
-    startDate: sample ? employee.startDate : details.workStartDate,
+    employerName: sample ? company.name : "Your employer",
+    startDate: sample ? employee.startDate : "",
     movingWithSpouse: answers.moving === "with_partner" || answers.moving === "with_family",
     movingWithChild: answers.moving === "with_family",
     preferredArea: areaNames[String(answers.area)] ?? "",
@@ -121,7 +121,7 @@ function customEmployeeData(company: Company, employee: Employee, answers: Onboa
     company: {
       ...company,
       id: "your-employer",
-      name: details.employerName.trim(),
+      name: "Your employer",
       policy: {
         ...company.policy,
         housingAllowanceAED: answers.allowance === "yes" ? budget : 0,
@@ -136,9 +136,9 @@ function customEmployeeData(company: Company, employee: Employee, answers: Onboa
       ...employee,
       id: "you",
       companyId: "your-employer",
-      name: details.name.trim(),
+      name: "Your move",
       role: "Employee",
-      startDate: details.workStartDate,
+      startDate: "",
       family,
       preferences: {
         bedrooms: Number(details.bedrooms) || 0,
@@ -177,13 +177,13 @@ export function OnboardingExperience({ company, employee, plan, todayISO }: Prop
       if (saved) {
         const parsed: unknown = JSON.parse(saved);
         if (parsed && typeof parsed === "object" && "answers" in parsed && "details" in parsed) {
-          const record = parsed as { answers: OnboardingAnswers; details: CaseDetails };
+          const record = parsed as { answers: unknown; details: unknown };
           const restored = restoreCaseDetails(record.details);
           if (validOnboardingAnswers(record.answers) && validCaseDetails(restored, String(record.answers.role), String(record.answers.moving))) {
             setAnswers(record.answers);
             setDetails(restored);
             setRemember(true);
-            setScreen("plan");
+            setScreen(validCaseDetails(restored, String(record.answers.role), String(record.answers.moving), String(record.answers.established)) ? "plan" : "details");
           }
         }
       }
@@ -289,7 +289,7 @@ export function OnboardingExperience({ company, employee, plan, todayISO }: Prop
 
   function finishDetails(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!validCaseDetails(details, String(answers.role), String(answers.moving))) return;
+    if (!validCaseDetails(details, String(answers.role), String(answers.moving), String(answers.established))) return;
     if (!remember) {
       removeLocal(caseStorageKey);
       removeLocal(progressStorageKey);
@@ -388,13 +388,8 @@ export function OnboardingExperience({ company, employee, plan, todayISO }: Prop
           <h1 className="type-question mt-4">Make this plan yours.</h1>
           <p className="mt-4 max-w-2xl text-sm leading-relaxed text-ink-muted">Enter what you know. Unknown budgets and preferences stay open; nothing is submitted to an authority or provider.</p>
           <form onSubmit={finishDetails} className="mt-10 grid gap-6 border-t border-rule pt-8 sm:grid-cols-2">
-            <label className="flex flex-col gap-2 text-sm font-medium">Your name
-              <input required maxLength={80} autoComplete="name" value={details.name} onChange={(event) => updateDetail("name", event.target.value)} className="min-h-11 border border-rule bg-paper-raised px-3 text-ink" />
-            </label>
             {answers.role === "founder" ? (
-              <><label className="flex flex-col gap-2 text-sm font-medium">Business name
-                <input required maxLength={100} value={details.businessName} onChange={(event) => updateDetail("businessName", event.target.value)} className="min-h-11 border border-rule bg-paper-raised px-3 text-ink" />
-              </label>
+              <>
               {answers.established === "yes" && <>
                 <label className="flex flex-col gap-2 text-sm font-medium">Main business activity
                   <select value={details.businessType} onChange={(event) => updateDetail("businessType", event.target.value)} className="min-h-11 border border-rule bg-paper-raised px-3">
@@ -416,12 +411,6 @@ export function OnboardingExperience({ company, employee, plan, todayISO }: Prop
               </>
             ) : (
               <>
-                <label className="flex flex-col gap-2 text-sm font-medium">Employer name
-                  <input required maxLength={100} value={details.employerName} onChange={(event) => updateDetail("employerName", event.target.value)} className="min-h-11 border border-rule bg-paper-raised px-3 text-ink" />
-                </label>
-                <label className="flex flex-col gap-2 text-sm font-medium">Work start date
-                  <input required type="date" value={details.workStartDate} onChange={(event) => updateDetail("workStartDate", event.target.value)} className="min-h-11 border border-rule bg-paper-raised px-3 text-ink" />
-                </label>
                 <label className="flex flex-col gap-2 text-sm font-medium">Work location
                   <input maxLength={100} value={details.workLocation} onChange={(event) => updateDetail("workLocation", event.target.value)} placeholder="Office or district, if known" className="min-h-11 border border-rule bg-paper-raised px-3 text-ink" />
                 </label>

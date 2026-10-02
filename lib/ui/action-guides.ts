@@ -453,3 +453,22 @@ export const actionGuidesByTaskId: Readonly<Record<string, ActionGuide>> = {
 export function getActionGuide(task: Pick<ScopedTask, "id">): ActionGuide | undefined {
   return actionGuidesByTaskId[task.id];
 }
+
+export function quickActionLinks(task: Pick<ScopedTask, "id" | "title">): readonly GuideLink[] {
+  const guide = getActionGuide(task);
+  if (!guide) return [];
+  if (["family-documents", "family-records"].includes(task.id)) return [
+    { label: "MoFA attestation, if required", url: "https://www.mofa.gov.ae/en/services/attestation" }, guide.action,
+  ];
+  if (["residency-completion", "family-residence", "partner-residence"].includes(task.id)) return [
+    { label: "Visa medical booking, if required", url: "https://capitalhealth.ae/" }, guide.action,
+  ];
+  if (["founder-entry", "employee-entry", "family-travel", "travel"].includes(task.id)) return [
+    { label: "Etihad flight search", url: "https://www.etihad.com/en/flights/" }, guide.action,
+  ];
+  if (task.id === "family-home-shortlist" || task.id === "housing" && task.title !== "Confirm employer housing") {
+    return guide.discover.filter((link) => ["www.propertyfinder.ae", "www.bayut.com"].includes(new URL(link.url).hostname))
+      .map((link) => ({ ...link, label: link.label.replace(" (example)", "") }));
+  }
+  return [guide.action];
+}

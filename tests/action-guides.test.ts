@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { demoCompany, demoEmployee, demoRelocation } from "../lib/demo/data";
-import { actionGuidesByTaskId, getActionGuide } from "../lib/ui/action-guides";
+import { actionGuidesByTaskId, getActionGuide, quickActionLinks } from "../lib/ui/action-guides";
 import { buildFounderTasks } from "../lib/ui/founder-plan";
 import { employeeAnswersFromFixture, founderDemo } from "../lib/ui/personas";
 import { buildEmployeeTasks } from "../lib/ui/scope";
@@ -42,4 +42,14 @@ test("guide links stay on official authority and provider domains", () => {
       assert.ok(officialDomains.some((domain) => url.hostname === domain || url.hostname.endsWith(`.${domain}`)), `${id}: ${link.url}`);
     }
   }
+});
+
+test("a practical step opens the relevant service, not only an authority directory", () => {
+  const housing = quickActionLinks({ id: "housing", title: "Shortlist suitable housing" });
+  assert.ok(housing.some((link) => new URL(link.url).hostname.endsWith("propertyfinder.ae")));
+  assert.ok(housing.some((link) => new URL(link.url).hostname.endsWith("bayut.com")));
+  assert.equal(quickActionLinks({ id: "housing", title: "Confirm employer housing" }).length, 1);
+  assert.ok(quickActionLinks({ id: "family-records", title: "Gather family records" }).some((link) => link.url.includes("mofa.gov.ae")));
+  assert.ok(quickActionLinks({ id: "residency-completion", title: "Residence" }).some((link) => link.url === "https://capitalhealth.ae/"));
+  assert.ok(quickActionLinks({ id: "employee-entry", title: "Travel" }).some((link) => link.url === "https://www.etihad.com/en/flights/"));
 });
