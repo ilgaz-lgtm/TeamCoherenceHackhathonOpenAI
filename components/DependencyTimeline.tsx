@@ -1,12 +1,12 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import type { RelocationTask } from "@/types/relocation";
+type TimelineTask = { id: string; title: string; category: string; dependsOn: string[] };
 
 const durations: Record<string, number> = { visa: 5, travel: 5, housing: 7, insurance: 4, school: 14, settling: 10 };
 const green = new Set(["visa", "travel", "housing", "school"]);
 
-function layout(tasks: RelocationTask[]) {
+function layout(tasks: TimelineTask[]) {
   const byId = new Map(tasks.map((task) => [task.id, task]));
   const ends = new Map<string, number>();
   const visiting = new Set<string>();
@@ -22,7 +22,7 @@ function layout(tasks: RelocationTask[]) {
   return tasks.map((task) => { const end = endOf(task.id); const duration = durations[task.category] ?? 5; return { task, start: end - duration, end }; });
 }
 
-export function DependencyTimeline({ tasks }: { tasks: RelocationTask[] }) {
+export function DependencyTimeline({ tasks }: { tasks: TimelineTask[] }) {
   const [active, setActive] = useState<string | null>(null);
   const rows = useMemo(() => layout(tasks), [tasks]);
   const maxDay = Math.max(100, Math.ceil(Math.max(...rows.map((row) => row.end), 0) / 10) * 10);
