@@ -3,24 +3,29 @@
 :root {
   --paper: #F4F1EA;
   --paper-sunk: #EAE5DA;
-  --paper-raised: #FBF9F4;
-  --ink: #15212B;
-  --ink-muted: #5A6B78;
-  --ink-faint: #8E9AA3;
+  --paper-raised: #FAF8F3;
+  --paper-offset: #E2DCCF;
+  --ink: #1B1B1B;
+  --ink-soft: #3A3630;
+  --ink-muted: #5E584C;
+  --ink-faint: #8C8576;
   --rule: #C8C2B4;
-  --rule-strong: #1E3A4C;
-  --accent: #D4551E;
-  --accent-sunk: #A8400F;
-  --survey: #2E6F7E;
-  --verified: #4A6B4F;
-  --warn: #8A6D1F;
+  --rule-strong: #1B1B1B;
+  --accent: #C8102E;
+  --accent-sunk: #C8102E;
+  --survey: #00732F;
+  --survey-muted: #7FA88E;
+  --verified: #00732F;
+  --warn: #C8102E;
 }
 
 @theme {
   --color-paper: var(--paper);
   --color-paper-sunk: var(--paper-sunk);
   --color-paper-raised: var(--paper-raised);
+  --color-paper-offset: var(--paper-offset);
   --color-ink: var(--ink);
+  --color-ink-soft: var(--ink-soft);
   --color-ink-muted: var(--ink-muted);
   --color-ink-faint: var(--ink-faint);
   --color-rule: var(--rule);
@@ -28,6 +33,7 @@
   --color-accent: var(--accent);
   --color-accent-sunk: var(--accent-sunk);
   --color-survey: var(--survey);
+  --color-survey-muted: var(--survey-muted);
   --color-verified: var(--verified);
   --color-warn: var(--warn);
   --font-sans: var(--font-plex-sans);
@@ -85,6 +91,30 @@ a {
   text-underline-offset: 0.18em;
 }
 
+:where(a, button, input, select, textarea, summary, [role="button"], [tabindex]:not([tabindex="-1"])):focus-visible {
+  outline: 1px solid var(--accent) !important;
+  outline-offset: 2px !important;
+}
+
+.type-question,
+.type-plan,
+.type-verdict,
+.type-bridge,
+.type-view {
+  font-family: var(--font-plex-condensed), sans-serif;
+  font-weight: 600;
+  line-height: 1;
+  text-transform: uppercase;
+  letter-spacing: 0;
+  text-wrap: balance;
+}
+
+.type-question { font-size: clamp(34px, 4.6vw, 60px); }
+.type-plan { font-size: clamp(40px, 5.4vw, 76px); line-height: 0.95; }
+.type-verdict { font-size: clamp(56px, 7.2vw, 124px); line-height: 0.85; font-weight: 700; }
+.type-bridge { font-size: clamp(28px, 3.6vw, 52px); line-height: 1.02; }
+.type-view { font-size: clamp(32px, 4vw, 52px); }
+
 ::selection {
   background: var(--accent);
   color: var(--paper-raised);
@@ -92,10 +122,10 @@ a {
 
 .drafting-grid {
   background-image:
-    linear-gradient(rgba(21, 33, 43, 0.03) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(21, 33, 43, 0.03) 1px, transparent 1px),
-    linear-gradient(rgba(21, 33, 43, 0.06) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(21, 33, 43, 0.06) 1px, transparent 1px);
+    linear-gradient(rgba(27, 27, 27, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(27, 27, 27, 0.03) 1px, transparent 1px),
+    linear-gradient(rgba(27, 27, 27, 0.06) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(27, 27, 27, 0.06) 1px, transparent 1px);
   background-position: 0 0;
   background-size: 24px 24px, 24px 24px, 120px 120px, 120px 120px;
 }
@@ -131,5 +161,15 @@ a {
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
+  }
+
+  .motion-reveal {
+    opacity: 1 !important;
+    filter: none !important;
+    translate: none !important;
+  }
+
+  [data-stroke-draw] {
+    stroke-dashoffset: 0 !important;
   }
 }

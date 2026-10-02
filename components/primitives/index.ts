@@ -1,8 +1,17 @@
 export { Annotation } from "./Annotation";
+export { AnswerLedger } from "./AnswerLedger";
+export { BrandMark } from "./BrandMark";
+export { CountStepper } from "./CountStepper";
 export { DrawnLine } from "./DrawnLine";
+export { DurationNote } from "./DurationNote";
 export { FieldLabel } from "./FieldLabel";
 export { Figure } from "./Figure";
+export { IndependentFooter } from "./IndependentFooter";
+export { OptionList } from "./OptionList";
+export { OptionRow } from "./OptionRow";
+export { PlanDataGrid } from "./PlanDataGrid";
 export { Rule } from "./Rule";
 export { Sheet } from "./Sheet";
 export { SourceBadge } from "./SourceBadge";
 export { Stamp } from "./Stamp";
+export { TaskRoom, TaskRoomGrid } from "./TaskRoom";

@@ -1,16 +1,17 @@
 import type { ComponentPropsWithoutRef } from "react";
 
-type SourceBadgeProps = Omit<ComponentPropsWithoutRef<"span">, "children"> & {
-  source: string;
-};
+type SourceBadgeProps = Omit<ComponentPropsWithoutRef<"span">, "children"> & (
+  | { authority: string; source?: never }
+  | { source: string; authority?: never }
+);
 
-export function SourceBadge({ source, className = "", ...props }: SourceBadgeProps) {
+export function SourceBadge({ source, authority, className = "", ...props }: SourceBadgeProps) {
   return (
     <span
       {...props}
-      className={`inline-flex items-center border-l-2 border-verified px-2 py-1 font-mono text-[11px] font-medium uppercase text-verified ${className}`}
+      className={`inline-flex flex-wrap items-center gap-x-2 gap-y-0.5 border border-rule px-2 py-1 font-mono text-[10px] font-medium uppercase text-ink-muted ${className}`}
     >
-      Source: {source}
+      {authority ? <><span>Per {authority}</span><span aria-hidden="true">·</span><span>Not yet verified</span></> : <span>{source}</span>}
     </span>
   );
 }

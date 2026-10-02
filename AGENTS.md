@@ -29,24 +29,30 @@ depends on the establishment card, which depends on a valid company licence.
 Do not imply every people task legally requires a lease or bank account.
 
 ### Tokens — CSS custom properties in app/globals.css
+The approved Wusool reference supersedes the original Blueprint colors. The
+reference HTML is read-only and is not part of this repository.
 ```
 --paper:        #F4F1EA   /* page background, bone */
 --paper-sunk:   #EAE5DA   /* recessed panels */
---paper-raised: #FBF9F4   /* panels above the sheet */
---ink:          #15212B   /* primary text, graphite blue */
---ink-muted:    #5A6B78
---ink-faint:    #8E9AA3   /* annotations, meta */
+--paper-raised: #FAF8F3   /* task rooms, timeline surface */
+--paper-offset: #E2DCCF   /* 3px paper edge */
+--ink:          #1B1B1B   /* near-black */
+--ink-soft:     #3A3630
+--ink-muted:    #5E584C
+--ink-faint:    #8C8576
 --rule:         #C8C2B4   /* 1px hairlines — the workhorse border */
---rule-strong:  #1E3A4C
---accent:       #D4551E   /* surveyor orange — ONE accent, used sparingly */
---accent-sunk:  #A8400F
---survey:       #2E6F7E   /* critical path only */
---verified:     #4A6B4F   /* source badges */
---warn:         #8A6D1F
+--rule-strong:  #1B1B1B
+--accent:       #C8102E   /* red accent */
+--survey:       #00732F   /* critical path */
+--survey-muted: #7FA88E   /* blocked critical path */
+--verified:     #00732F
+--warn:         #C8102E
 ```
 
 ### Typography — IBM Plex family only, via next/font/google
-- Headings: IBM Plex Sans Condensed, 600, uppercase, letter-spacing 0.06em
+- Headings: IBM Plex Sans Condensed, 600/700, uppercase. Use the approved
+  clamp scales: question 34px–60px, plan 40px–76px, verdict 56px–124px,
+  bridge 28px–52px, view 32px–52px. Keep letter spacing 0.
 - Body: IBM Plex Sans, 400/500, 15–16px, line-height 1.55
 - Labels, numbers, ids, costs: IBM Plex Mono, 500, uppercase for labels,
   `font-variant-numeric: tabular-nums` on every figure
@@ -56,7 +62,7 @@ Do not imply every people task legally requires a lease or bank account.
 - Border radius 0 by default, 2px absolute maximum. Never more.
 - `1px solid var(--rule)` is the default separator everywhere.
 - Spacing scale: 4, 8, 16, 24, 32, 48, 64.
-- Drafting grid background: 24px minor / 120px major, ink at 3% and 6% alpha.
+- Plain paper is the default page field. The drafting grid remains opt-in.
 
 ### Depth
 **No `box-shadow` anywhere in the codebase.** Elevation = hairline borders + a

@@ -15,21 +15,21 @@ const plexSans = IBM_Plex_Sans({
 });
 
 const plexCondensed = IBM_Plex_Sans_Condensed({
-  weight: "600",
+  weight: ["600", "700"],
   subsets: ["latin"],
   variable: "--font-plex-condensed",
   display: "swap",
 });
 
 const plexMono = IBM_Plex_Mono({
-  weight: ["400", "500"],
+  weight: ["400", "500", "600"],
   subsets: ["latin"],
   variable: "--font-plex-mono",
   display: "swap",
 });
 
 const plexArabic = IBM_Plex_Sans_Arabic({
-  weight: "400",
+  weight: ["400", "600"],
   subsets: ["arabic"],
   variable: "--font-plex-arabic",
   display: "swap",
@@ -47,7 +47,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
       className={`${plexSans.variable} ${plexCondensed.variable} ${plexMono.variable} ${plexArabic.variable}`}
     >
       <body>
-        <div className="drafting-grid min-h-screen">{children}</div>
+        <div className="min-h-screen">{children}</div>
       </body>
     </html>
   );

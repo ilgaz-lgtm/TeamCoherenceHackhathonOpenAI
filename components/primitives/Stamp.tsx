@@ -1,13 +1,13 @@
 import type { ComponentPropsWithoutRef } from "react";
 
-type StampProps = ComponentPropsWithoutRef<"span">;
+type StampProps = ComponentPropsWithoutRef<"span"> & { compact?: boolean };
 
-export function Stamp({ className = "", style, ...props }: StampProps) {
+export function Stamp({ className = "", compact = false, style, ...props }: StampProps) {
   return (
     <span
       {...props}
-      className={`inline-flex min-h-8 items-center border border-accent bg-transparent px-3 py-1 font-mono text-[11px] font-medium uppercase text-accent ${className}`}
-      style={{ ...style, transform: "rotate(-4deg)" }}
+      className={`inline-flex items-center border border-ink bg-transparent font-mono font-medium uppercase text-ink ${compact ? "px-1.5 py-0.5 text-[9.5px]" : "min-h-8 px-3 py-1 text-[11px]"} ${className}`}
+      style={{ ...style, transform: "rotate(-2deg)" }}
     />
   );
 }
